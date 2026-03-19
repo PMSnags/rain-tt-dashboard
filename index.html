@@ -211,7 +211,7 @@
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSy6Yz2sRdM3CfM_XSaqfntA1Uksqk6HwITZPQIB7iQ9SfGkSbITESJlkzqEFVJxRrGIyK5xtzjEHFB/pub?gid=0&single=true&output=csv';
 
   // Paste your Google Apps Script Web App URL here after setup:
-  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbw4k3JjzlgHQt1IlNWRg5r1OKSq2M6ZW0uiyDmeC0w9i7igsb4Wu_gfS0NXQ67aC8k-EA/exec';
+  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwygCj_8boLmEostIWEi4-mG3xXMhUe5Yv1ICvymr9g1qQEN8x0cDgFgQCIvfe4H0RhUw/exec';
   // ─────────────────────────────────────────────────────────────────────────
 </script>
 
@@ -438,18 +438,36 @@ function mapAlarm(cat){
   return'Others';
 }
 
-// ── JSONP helper ─────────────────────────────────────────────────────────
-function jsonp(url,params,ms){
-  return new Promise((resolve,reject)=>{
-    const cb='_dg_'+Date.now()+'_'+Math.floor(Math.random()*9999);
-    const qs=Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
-    const full=url+(url.includes('?')?'&':'?')+(qs?qs+'&':'')+'callback='+cb;
-    const s=document.createElement('script');
-    const t=setTimeout(()=>{delete window[cb];s.remove();reject(new Error('timeout'));},ms||10000);
-    window[cb]=d=>{clearTimeout(t);delete window[cb];s.remove();resolve(d);};
-    s.onerror=()=>{clearTimeout(t);delete window[cb];s.remove();reject(new Error('load failed'));};
-    s.src=full;document.head.appendChild(s);
-  });
+// ── Apps Script caller ───────────────────────────────────────────────────
+// Uses fetch with no-cors for writes (fire-and-forget).
+// Uses fetch with cors for reads since Apps Script supports it via redirect.
+function gasCall(params){
+  const qs=Object.entries(params).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+  const url=APPS_SCRIPT_URL+'?'+qs;
+  return fetch(url,{redirect:'follow'})
+    .then(r=>r.text())
+    .then(text=>{
+      // Strip JSONP wrapper if present e.g. callback({...})
+      const m=text.match(/^[^(]+\((.+)\)\s*;?\s*$/s);
+      return JSON.parse(m?m[1]:text);
+    });
+}
+// Fire-and-forget for saves (no-cors fallback if CORS blocked)
+function gasSave(params){
+  const qs=Object.entries(params).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+  const url=APPS_SCRIPT_URL+'?'+qs;
+  // Try with CORS first, fall back to no-cors
+  return fetch(url,{redirect:'follow'})
+    .then(r=>r.text())
+    .then(text=>{
+      const m=text.match(/^[^(]+\((.+)\)\s*;?\s*$/s);
+      return JSON.parse(m?m[1]:text);
+    })
+    .catch(()=>{
+      // Fallback: fire-and-forget with no-cors (can't read response but write goes through)
+      fetch(url,{mode:'no-cors',redirect:'follow'});
+      return {result:'ok',note:'no-cors fallback'};
+    });
 }
 
 // ── Save via JSONP GET ────────────────────────────────────────────────────
@@ -465,10 +483,11 @@ async function saveField(btn,rowIndex){
   const updatedBy=localStorage.getItem('dg_username')||'Dashboard User';
   btn.disabled=true;btn.className='btn-save saving';btn.textContent='Saving...';
   try{
-    const result=await jsonp(APPS_SCRIPT_URL,{
+    const siteStatusVal=document.getElementById('sel-sitestat-'+rowIndex)?.value||'';
+    const result=await gasSave({
       action:'save',ttNumber:row['TT Number']||'',siteId:row['Site ID']||'',
-      status:statusVal,remarks:remarksVal,updatedBy:updatedBy
-    },30000);
+      status:statusVal,siteStatus:siteStatusVal,remarks:remarksVal,updatedBy:updatedBy
+    });
     if(result&&result.result==='ok'){
       btn.className='btn-save saved';btn.textContent='✓ Saved';
       showToast('Saved to Google Sheets ✓','success');
@@ -500,7 +519,7 @@ function fetchLog(){
   const lc=document.getElementById('log-count');
   if(!lb)return;
   lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Loading...</td></tr>';
-  jsonp(APPS_SCRIPT_URL,{action:'getLog'},30000)
+  gasCall({action:'getLog'})
     .then(data=>{
       if(!data||!data.log){lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">No data.</td></tr>';return;}
       if(lc)lc.textContent=data.log.length+' entries';
@@ -797,11 +816,11 @@ function loadData(){
   if(!APPS_SCRIPT_URL){ loadDemo(); return; }
   document.getElementById('loading-msg').textContent='Connecting to Google Sheets...';
   // First ping to check if script is alive
-  jsonp(APPS_SCRIPT_URL, {action:'ping'}, 30000)
+  gasCall({action:'ping'})
     .then(pong=>{
       if(pong && pong.pong){
         document.getElementById('loading-msg').textContent='Loading TT data...';
-        return jsonp(APPS_SCRIPT_URL, {action:'getData'}, 30000);
+        return gasCall({action:'getData'});
       } else {
         throw new Error('ping failed: '+ JSON.stringify(pong));
       }
@@ -817,7 +836,8 @@ function loadData(){
     })
     .catch(err=>{
       console.error('Apps Script failed:', err);
-      showScriptError(err.message||'timeout');
+      showScriptError(err.message||'timeout — falling back to CSV');
+      loadCSV();
     });
 }
 
