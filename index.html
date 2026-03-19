@@ -211,7 +211,7 @@
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSy6Yz2sRdM3CfM_XSaqfntA1Uksqk6HwITZPQIB7iQ9SfGkSbITESJlkzqEFVJxRrGIyK5xtzjEHFB/pub?gid=0&single=true&output=csv';
 
   // Paste your Google Apps Script Web App URL here after setup:
-  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwv3QBVBW5NRPUUvsqHd7N2lqf_2yVSrUC2oFIoOQnwyGqtOuhAACyBXU40Is0xUUHxxQ/exec';
+  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbzP4Ljwl-KiwQL7f5H2GQzltuxXAN9NjvaOAw6pOQMlen7UPXWOtCJrNRN5aZUcdMYt9Q/exec';
   // ─────────────────────────────────────────────────────────────────────────
 </script>
 
@@ -245,10 +245,13 @@
         <span class="badge badge-alert"><span class="badge-dot"></span>Down: <span id="b-down">—</span></span>
         <span class="badge badge-ok"><span class="badge-dot"></span>On Air: <span id="b-onair">—</span></span>
       </div>
-      <button class="btn-refresh" onclick="refreshData()">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span style="font-size:11px;color:var(--muted);">Logged in as <strong id="username-label" style="color:var(--text);cursor:pointer;" onclick="document.getElementById('username-modal').style.display='flex'">—</strong></span>
+        <button class="btn-refresh" onclick="refreshData()">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.07-3.45L10 6h5V1l-1.35 1.35z" fill="currentColor"/></svg>
         Refresh Data
       </button>
+      </div>
     </div>
   </div>
 </div>
@@ -256,50 +259,138 @@
 <div class="container">
 
   <!-- Apps Script Setup Panel -->
-  <div id="setup-panel" class="script-panel" style="display:none">
+  <div id="setup-panel" class="script-panel">
     <div class="script-panel-title">
       <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14a6 6 0 110-12 6 6 0 010 12zm1-7h-2V7h2v2zm0 4h-2v-2h2v2z" fill="currentColor"/></svg>
       Apps Script Setup — Enable Write-Back to Google Sheets
     </div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;">Follow these steps once to enable saving TT Status and Remarks directly to your Google Sheet.</p>
-    <div class="script-steps">
+    <div id="setup-steps"><div class="script-steps">
       <div class="script-step"><span>Open your Google Sheet → click <strong>Extensions → Apps Script</strong></span></div>
       <div class="script-step"><span>Delete all existing code, then paste the script below and click <strong>Save (Ctrl+S)</strong></span></div>
       <div class="script-step"><span>Click <strong>Deploy → New Deployment</strong> → Type: <strong>Web App</strong> → Execute as: <strong>Me</strong> → Who has access: <strong>Anyone</strong> → click <strong>Deploy</strong></span></div>
       <div class="script-step"><span>Copy the <strong>Web App URL</strong>, paste it below and click Connect</span></div>
+    </div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.75rem;margin-bottom:.5rem;">
+      <p style="font-size:11px;color:var(--muted);">Copy and paste this into Apps Script (Extensions → Apps Script):</p>
+      <button class="btn-connect" style="font-size:11px;padding:5px 14px;flex-shrink:0;" onclick="copyScript(this)">&#128203; Copy Script</button>
     </div>
-    <div class="code-block">function doPost(e) {
-  var data = JSON.parse(e.postData.contents);
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(' Rain TTs Tracker');
-  var rows = sheet.getDataRange().getValues();
-  var headers = rows[0];
-  var ttNumCol = headers.indexOf('TT Number');
-  var statusCol = headers.indexOf('TT Status');
-  var remarksCol = headers.indexOf('Additional remarks');
+    <div class="code-block" id="script-code-block">// ══════════════════════════════════════════════════════════════════
+// DIGITUS Rain TT Dashboard — Apps Script v3
+// IMPORTANT: Replace ALL existing code with this. Then:
+// Deploy > New Deployment > Web App
+// Execute as: Me | Who has access: Anyone
+// Copy the NEW Web App URL and paste it in the dashboard.
+// ══════════════════════════════════════════════════════════════════
 
-  for (var i = 1; i < rows.length; i++) {
-    if (rows[i][ttNumCol] == data.ttNumber && rows[i][1] == data.ttDate) {
-      if (data.field === 'status')  sheet.getRange(i+1, statusCol+1).setValue(data.value);
-      if (data.field === 'remarks') sheet.getRange(i+1, remarksCol+1).setValue(data.value);
-      return ContentService.createTextOutput(JSON.stringify({result:'ok'}))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
+var SHEET_NAME = ' Rain TTs Tracker';  // ← must match your tab name exactly (note leading space)
+var LOG_NAME   = 'Update Log';         // ← auto-created if missing
+
+// All dashboard calls come through doGet (JSONP works with GET, not POST)
+function doGet(e) {
+  var p = e.parameter;
+  var cb = p.callback || 'callback';
+
+  try {
+    if (p.action === 'save')   return wrap(cb, handleSave(p));
+    if (p.action === 'getLog') return wrap(cb, handleGetLog());
+    if (p.action === 'ping')   return wrap(cb, {pong: true, status: 'online'});
+    return wrap(cb, {status: 'online', version: '3.0'});
+  } catch(err) {
+    return wrap(cb, {result: 'error', msg: err.toString()});
   }
-  return ContentService.createTextOutput(JSON.stringify({result:'not_found'}))
-    .setMimeType(ContentService.MimeType.JSON);
 }
 
-function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({status:'online'}))
-    .setMimeType(ContentService.MimeType.JSON);
-}</div>
-    <div style="margin-top:1rem;">
+function handleSave(p) {
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet  = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) return {result: 'error', msg: 'Sheet not found: [' + SHEET_NAME + ']'};
+
+  var rows    = sheet.getDataRange().getValues();
+  var headers = rows[0].map(function(h){ return String(h).trim(); });
+  var ttNumCol  = headers.indexOf('TT Number');
+  var statusCol = headers.indexOf('TT Status');
+  var remCol    = headers.indexOf('Additional remarks');
+  var siteCol   = headers.indexOf('Site ID');
+
+  if (ttNumCol < 0) return {result: 'error', msg: '"TT Number" column not found'};
+
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][ttNumCol]).trim() === String(p.ttNumber).trim()) {
+      var oldStatus  = String(rows[i][statusCol]  || '');
+      var oldRemarks = String(rows[i][remCol]      || '');
+
+      if (statusCol >= 0 && p.status  !== undefined) sheet.getRange(i+1, statusCol+1).setValue(p.status);
+      if (remCol    >= 0 && p.remarks !== undefined) sheet.getRange(i+1, remCol+1).setValue(p.remarks);
+
+      writeLog(ss, {
+        timestamp : new Date(),
+        ttNumber  : p.ttNumber,
+        siteId    : rows[i][siteCol] || '',
+        updatedBy : p.updatedBy || 'Dashboard User',
+        oldStatus : oldStatus,
+        newStatus : p.status  !== undefined ? p.status  : oldStatus,
+        oldRemarks: oldRemarks,
+        newRemarks: p.remarks !== undefined ? p.remarks : oldRemarks
+      });
+
+      return {result: 'ok'};
+    }
+  }
+  return {result: 'not_found'};
+}
+
+function handleGetLog() {
+  var ss  = SpreadsheetApp.getActiveSpreadsheet();
+  var log = ss.getSheetByName(LOG_NAME);
+  if (!log) return {result: 'ok', log: []};
+  var rows    = log.getDataRange().getValues();
+  var headers = rows[0];
+  var data    = rows.slice(1).reverse().map(function(r) {
+    var obj = {};
+    headers.forEach(function(h, i) { obj[String(h)] = String(r[i] || ''); });
+    return obj;
+  });
+  return {result: 'ok', log: data};
+}
+
+function writeLog(ss, entry) {
+  var log = ss.getSheetByName(LOG_NAME);
+  if (!log) {
+    log = ss.insertSheet(LOG_NAME);
+    var hdr = log.getRange(1, 1, 1, 8);
+    log.appendRow(['Timestamp','TT Number','Site ID','Updated By',
+                   'Old Status','New Status','Old Remarks','New Remarks']);
+    hdr.setFontWeight('bold').setBackground('#1a0305').setFontColor('#ffffff');
+    log.setFrozenRows(1);
+    log.setColumnWidth(1, 160);
+  }
+  log.appendRow([
+    entry.timestamp, entry.ttNumber, entry.siteId, entry.updatedBy,
+    entry.oldStatus, entry.newStatus, entry.oldRemarks, entry.newRemarks
+  ]);
+}
+
+function wrap(cb, obj) {
+  return ContentService
+    .createTextOutput(cb + '(' + JSON.stringify(obj) + ')')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+// doPost kept as fallback (not used by dashboard)
+function doPost(e) { return doGet(e); }
+// ══════════════════════════════════════════════════════════════════</div>
+    <div id="connect-row" style="margin-top:1rem;">
       <label style="font-size:12px;color:var(--muted);">Paste your Web App URL here:</label>
       <input type="text" id="script-url-input" class="input-url" placeholder="https://script.google.com/macros/s/XXXXX/exec">
       <div style="display:flex;align-items:center;gap:12px;margin-top:.5rem;">
         <button class="btn-connect" onclick="connectScript()">Connect</button>
         <span id="connect-status"></span>
       </div>
+    </div>
+    <div id="connected-row" style="display:none;margin-top:1rem;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span class="connected-badge">&#10003; Connected to Google Sheets</span>
+      <button class="btn-connect" style="font-size:11px;padding:5px 12px;" onclick="document.getElementById('connect-row').style.display='flex';document.getElementById('connected-row').style.display='none';">Change URL</button>
     </div>
   </div>
 
@@ -393,7 +484,37 @@ function doGet(e) {
     </table>
   </div>
 
+  <!-- Update Log -->
+  <p class="section-title" style="margin-top:2rem;">Update Log <span id="log-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-left:6px;"></span></p>
+  <div class="chart-card" style="margin-bottom:20px;padding:1.25rem 1.5rem;overflow-x:auto;">
+    <table class="tt-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>TT Number</th>
+          <th>Site ID</th>
+          <th>Updated By</th>
+          <th>Changes</th>
+          <th>New Remarks</th>
+        </tr>
+      </thead>
+      <tbody id="log-body">
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">Connect Apps Script and make your first save to see the log.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
 </div><!-- /.container -->
+
+<!-- Username modal -->
+<div id="username-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9998;display:flex;align-items:center;justify-content:center;">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:2rem;width:360px;max-width:90vw;">
+    <div style="font-size:15px;font-weight:600;margin-bottom:.5rem;">Who are you?</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:1.25rem;">Your name will be recorded in the update log whenever you save changes.</div>
+    <input type="text" id="username-input" class="input-url" placeholder="Enter your name (e.g. Ahmed NOC)" style="margin-top:0;">
+    <button class="btn-connect" style="margin-top:.75rem;width:100%;justify-content:center;" onclick="setUsername()">Continue to Dashboard</button>
+  </div>
+</div>
 
 <div class="footer">
   <div>DIGITUS NOC — Rain TT &amp; Outages Dashboard — Confidential, Internal Use Only</div>
@@ -433,57 +554,115 @@ function mapAlarm(cat){
   return'Others';
 }
 
-// ── Apps Script connect ───────────────────────────────────────────────────
+// ── JSONP helper ─────────────────────────────────────────────────────────
+function jsonp(url,params,ms){
+  return new Promise((resolve,reject)=>{
+    const cb='_dg_'+Date.now()+'_'+Math.floor(Math.random()*9999);
+    const qs=Object.entries(params||{}).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
+    const full=url+(url.includes('?')?'&':'?')+(qs?qs+'&':'')+'callback='+cb;
+    const s=document.createElement('script');
+    const t=setTimeout(()=>{delete window[cb];s.remove();reject(new Error('timeout'));},ms||10000);
+    window[cb]=d=>{clearTimeout(t);delete window[cb];s.remove();resolve(d);};
+    s.onerror=()=>{clearTimeout(t);delete window[cb];s.remove();reject(new Error('load failed'));};
+    s.src=full;document.head.appendChild(s);
+  });
+}
+
+// ── Connect ───────────────────────────────────────────────────────────────
 function connectScript(){
   const url=document.getElementById('script-url-input').value.trim();
   if(!url){showToast('Please paste the Web App URL first','error');return;}
   if(!url.includes('script.google.com')){showToast('URL does not look like an Apps Script Web App URL','error');return;}
-  // Browser CORS blocks GET tests to Apps Script — we just save the URL directly.
-  // The real test happens when you click Save on a row.
-  APPS_SCRIPT_URL=url;
-  localStorage.setItem('dg_apps_script_url',url);
   const st=document.getElementById('connect-status');
-  st.innerHTML='<span class="connected-badge">&#10003; Connected</span>';
-  document.getElementById('setup-panel').style.display='none';
-  document.getElementById('edit-note').textContent='— changes sync to Google Sheets';
-  showToast('Apps Script URL saved! Click Save on any row to write to Google Sheets.','success');
+  st.innerHTML='<span style="color:var(--muted);font-size:12px;">Testing...</span>';
+  jsonp(url,{action:'ping'},8000)
+    .then(data=>{
+      APPS_SCRIPT_URL=url;localStorage.setItem('dg_apps_script_url',url);
+      st.innerHTML='<span class="connected-badge">&#10003; Connected</span>';
+      document.getElementById('setup-panel').style.display='none';
+      document.getElementById('edit-note').textContent='— changes sync to Google Sheets';
+      showToast('Connected! You can now save changes to Google Sheets.','success');
+      fetchLog();
+    })
+    .catch(()=>{
+      APPS_SCRIPT_URL=url;localStorage.setItem('dg_apps_script_url',url);
+      st.innerHTML='<span class="connected-badge">&#10003; Saved — redeploy if saves fail</span>';
+      document.getElementById('setup-panel').style.display='none';
+      showToast('URL saved. Make sure you pasted the NEW Apps Script code.','success');
+    });
 }
 
-// ── Save a single field to Google Sheets ─────────────────────────────────
-async function saveField(btn, rowIndex, field){
+// ── Save via JSONP GET ────────────────────────────────────────────────────
+async function saveField(btn,rowIndex){
   if(!APPS_SCRIPT_URL){
-    showToast('Connect Apps Script first to save changes','error');
+    showToast('Connect Apps Script first — see setup panel above','error');
     document.getElementById('setup-panel').style.display='block';
-    return;
+    window.scrollTo({top:0,behavior:'smooth'});return;
   }
   const row=allRows[rowIndex];
-  const value=field==='status'
-    ? document.getElementById('sel-status-'+rowIndex).value
-    : document.getElementById('txt-remarks-'+rowIndex).value;
-
+  const statusVal=document.getElementById('sel-status-'+rowIndex).value;
+  const remarksVal=document.getElementById('txt-remarks-'+rowIndex).value;
+  const updatedBy=localStorage.getItem('dg_username')||'Dashboard User';
   btn.disabled=true;btn.className='btn-save saving';btn.textContent='Saving...';
-
   try{
-    await fetch(APPS_SCRIPT_URL,{
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        ttNumber: row['TT Number'],
-        ttDate:   row['TT Date'],
-        field:    field,
-        value:    value
-      })
-    });
-    btn.className='btn-save saved';btn.textContent='✓ Saved';
-    showToast('Saved to Google Sheets','success');
-    setTimeout(()=>{btn.className='btn-save';btn.textContent='Save';btn.disabled=false;},2500);
+    const result=await jsonp(APPS_SCRIPT_URL,{
+      action:'save',ttNumber:row['TT Number']||'',siteId:row['Site ID']||'',
+      status:statusVal,remarks:remarksVal,updatedBy:updatedBy
+    },12000);
+    if(result&&result.result==='ok'){
+      btn.className='btn-save saved';btn.textContent='✓ Saved';
+      showToast('Saved to Google Sheets ✓','success');
+      allRows[rowIndex]['TT Status']=statusVal;
+      allRows[rowIndex]['Additional remarks']=remarksVal;
+      setTimeout(fetchLog,1500);
+    } else if(result&&result.result==='not_found'){
+      btn.className='btn-save error';btn.textContent='Not found';
+      showToast('TT Number not found in sheet — check it matches exactly','error');
+    } else {
+      btn.className='btn-save error';btn.textContent='Error';
+      showToast('Error: '+(result&&result.msg||'unknown'),'error');
+    }
   }catch(err){
-    btn.className='btn-save error';btn.textContent='Failed';
-    showToast('Save failed — check Apps Script URL','error');
-    setTimeout(()=>{btn.className='btn-save';btn.textContent='Save';btn.disabled=false;},2500);
+    btn.className='btn-save error';btn.textContent='Timeout';
+    showToast('Timed out — ensure the new Apps Script is deployed','error');
+    console.error('Save error:',err);
   }
+  setTimeout(()=>{btn.className='btn-save';btn.textContent='Save';btn.disabled=false;},3000);
 }
+
+// ── Fetch update log via JSONP ────────────────────────────────────────────
+function fetchLog(){
+  if(!APPS_SCRIPT_URL)return;
+  const lb=document.getElementById('log-body');
+  const lc=document.getElementById('log-count');
+  if(!lb)return;
+  lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Loading...</td></tr>';
+  jsonp(APPS_SCRIPT_URL,{action:'getLog'},10000)
+    .then(data=>{
+      if(!data||!data.log){lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">No data.</td></tr>';return;}
+      if(lc)lc.textContent=data.log.length+' entries';
+      if(data.log.length===0){lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No updates yet.</td></tr>';return;}
+      lb.innerHTML=data.log.slice(0,100).map(r=>{
+        const ts=r.Timestamp?new Date(r.Timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+        const sc=r['Old Status']!==r['New Status'];
+        const rc=String(r['Old Remarks']||'').trim()!==String(r['New Remarks']||'').trim();
+        const ch=[];
+        if(sc)ch.push('<span style="color:var(--red)">'+e(r['Old Status'])+'</span> → <span style="color:var(--green)">'+e(r['New Status'])+'</span>');
+        if(rc)ch.push('<span style="color:var(--muted)">Remarks updated</span>');
+        return`<tr>
+          <td style="white-space:nowrap;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${ts}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:11px">${e(r['TT Number'])}</td>
+          <td style="font-family:'DM Mono',monospace;font-size:11px">${e(r['Site ID'])}</td>
+          <td style="font-size:12px;font-weight:500;color:#7dd3fc">${e(r['Updated By'])}</td>
+          <td style="font-size:11px">${ch.join(' · ')||'—'}</td>
+          <td style="font-size:11px;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e(r['New Remarks'])}</td>
+        </tr>`;
+      }).join('');
+    })
+    .catch(()=>{lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Could not load log.</td></tr>';});
+}
+function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
 
 // ── Build dashboard ───────────────────────────────────────────────────────
 function buildDashboard(rows){
@@ -520,15 +699,19 @@ function buildDashboard(rows){
       down.map(r=>r['Site ID']).join(', ')+' — Immediate escalation required.';
   }
 
-  // Setup panel
+  // Setup panel — always show script code, but collapse steps if already connected
   if(APPS_SCRIPT_URL){
-    document.getElementById('setup-panel').style.display='none';
+    document.getElementById('setup-steps').style.display='none';
+    document.getElementById('connect-row').style.display='none';
+    document.getElementById('connected-row').style.display='flex';
     document.getElementById('edit-note').textContent='— changes sync to Google Sheets';
   } else {
-    document.getElementById('setup-panel').style.display='block';
+    document.getElementById('setup-steps').style.display='block';
+    document.getElementById('connect-row').style.display='flex';
+    document.getElementById('connected-row').style.display='none';
     document.getElementById('edit-note').textContent='— connect Apps Script to enable saving';
-    if(APPS_SCRIPT_URL) document.getElementById('script-url-input').value=APPS_SCRIPT_URL;
   }
+  if(APPS_SCRIPT_URL) document.getElementById('script-url-input').value=APPS_SCRIPT_URL;
 
   // Site class cards
   const classes=['Class A','Class B','Class C'];
@@ -609,7 +792,7 @@ function buildDashboard(rows){
       <td style="min-width:130px"><select id="sel-status-${idx}" class="edit-select" onchange="markDirty(${idx})">${statusSel}</select></td>
       <td style="font-family:'DM Mono',monospace;font-size:11px">${r['FE name attending the TT']||'—'}</td>
       <td style="min-width:180px"><textarea id="txt-remarks-${idx}" class="edit-textarea" rows="2" onchange="markDirty(${idx})">${curRemarks}</textarea></td>
-      <td><button id="btn-save-${idx}" class="btn-save" onclick="saveField(this,${idx},'both')">Save</button></td>
+      <td><button id="btn-save-${idx}" class="btn-save" onclick="saveField(this,${idx})">Save</button></td>
     </tr>`;
   }).join('');
 
@@ -625,37 +808,66 @@ function buildDashboard(rows){
 
   document.getElementById('loading').style.display='none';
   document.getElementById('app').style.display='block';
+  fetchLog();
+  // Show username prompt if not set
+  const storedName=localStorage.getItem('dg_username');
+  if(!storedName){
+    document.getElementById('username-modal').style.display='flex';
+  } else {
+    document.getElementById('username-label').textContent=storedName;
+  }
 }
 
 // Save both status + remarks in one click
-async function saveField(btn,rowIndex,field){
-  if(!APPS_SCRIPT_URL){
-    showToast('Connect Apps Script first — see setup panel above','error');
-    document.getElementById('setup-panel').style.display='block';
-    window.scrollTo({top:0,behavior:'smooth'});
-    return;
-  }
-  const row=allRows[rowIndex];
-  btn.disabled=true;btn.className='btn-save saving';btn.textContent='Saving...';
-  const statusVal=document.getElementById('sel-status-'+rowIndex).value;
-  const remarksVal=document.getElementById('txt-remarks-'+rowIndex).value;
+// ── Fetch update log from Apps Script ────────────────────────────────────
+function fetchLog(){
+  if(!APPS_SCRIPT_URL)return;
+  const logBody=document.getElementById('log-body');
+  const logCount=document.getElementById('log-count');
+  if(!logBody)return;
+  // We use a script tag trick to work around CORS on GET
+  const callbackName='dgLogCb_'+Date.now();
+  const url=APPS_SCRIPT_URL+'?action=getLog&callback='+callbackName;
+  window[callbackName]=function(data){
+    if(data&&data.log){
+      logCount.textContent=data.log.length+' entries';
+      if(data.log.length===0){
+        logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No updates logged yet — make your first save above.</td></tr>';
+        return;
+      }
+      logBody.innerHTML=data.log.slice(0,50).map(function(r){
+        const ts=r['Timestamp']?new Date(r['Timestamp']).toLocaleString('en-GB'):'—';
+        const changed=[];
+        if(r['Old Status']!==r['New Status'])changed.push('Status: <span style="color:var(--red)">'+r['Old Status']+'</span> → <span style="color:var(--green)">'+r['New Status']+'</span>');
+        if(String(r['Old Remarks']||'').trim()!==String(r['New Remarks']||'').trim())changed.push('Remarks updated');
+        return'<tr><td style="white-space:nowrap;font-size:11px;color:var(--muted)">'+ts+'</td>'
+          +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+r['TT Number']+'</td>'
+          +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+r['Site ID']+'</td>'
+          +'<td style="font-size:12px;font-weight:500;color:#7dd3fc">'+r['Updated By']+'</td>'
+          +'<td style="font-size:11px">'+changed.join(' &nbsp;|&nbsp; ')+'</td>'
+          +'<td style="font-size:11px;color:var(--muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r['New Remarks']+'</td>'
+          +'</tr>';
+      }).join('');
+    }
+    delete window[callbackName];
+  };
+  // JSONP-style load
+  const s=document.createElement('script');
+  s.src=url;
+  s.onerror=function(){
+    logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Log requires Apps Script — make sure it is deployed.</td></tr>';
+    delete window[callbackName];
+  };
+  document.head.appendChild(s);
+  setTimeout(()=>{if(window[callbackName]){delete window[callbackName];}},5000);
+}
 
-  try{
-    // Save status
-    await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ttNumber:row['TT Number'],ttDate:row['TT Date'],field:'status',value:statusVal})});
-    // Save remarks
-    await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ttNumber:row['TT Number'],ttDate:row['TT Date'],field:'remarks',value:remarksVal})});
-
-    btn.className='btn-save saved';btn.textContent='✓ Saved';
-    showToast('Row saved to Google Sheets ✓','success');
-    setTimeout(()=>{btn.className='btn-save';btn.textContent='Save';btn.disabled=false;},2500);
-  }catch(err){
-    btn.className='btn-save error';btn.textContent='Failed';
-    showToast('Save failed — check your Apps Script URL','error');
-    setTimeout(()=>{btn.className='btn-save';btn.textContent='Save';btn.disabled=false;},2500);
-  }
+function setUsername(){
+  const name=document.getElementById('username-input').value.trim();
+  if(!name){showToast('Please enter your name','error');return;}
+  localStorage.setItem('dg_username',name);
+  document.getElementById('username-modal').style.display='none';
+  document.getElementById('username-label').textContent=name;
 }
 
 function markDirty(idx){
