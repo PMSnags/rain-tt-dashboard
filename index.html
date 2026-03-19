@@ -211,13 +211,33 @@
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSy6Yz2sRdM3CfM_XSaqfntA1Uksqk6HwITZPQIB7iQ9SfGkSbITESJlkzqEFVJxRrGIyK5xtzjEHFB/pub?gid=0&single=true&output=csv';
 
   // Paste your Google Apps Script Web App URL here after setup:
-  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbw7Gw0BMPC2dSHs6a7SKUITUCgfLsoIXr0aI-mUqX3d5ZgS1InGoYJ4Bm6yLcxP0SK0WQ/exec';
+  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbw4k3JjzlgHQt1IlNWRg5r1OKSq2M6ZW0uiyDmeC0w9i7igsb4Wu_gfS0NXQ67aC8k-EA/exec';
   // ─────────────────────────────────────────────────────────────────────────
 </script>
 
 <div id="loading">
   <div class="spinner"></div>
   <p id="loading-msg">Loading TT data from Google Sheets...</p>
+</div>
+
+<div id="script-error" style="display:none;position:fixed;inset:0;background:#0f1117;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:20px;padding:2rem;">
+  <div style="font-size:2rem;">⚠️</div>
+  <div style="font-size:16px;font-weight:600;color:#f87171;">Apps Script Not Responding</div>
+  <div id="script-error-msg" style="font-size:13px;color:#8b90a4;text-align:center;max-width:480px;"></div>
+  <div style="background:#181c27;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:1.25rem 1.5rem;max-width:520px;width:100%;">
+    <div style="font-size:12px;font-weight:600;color:#e8eaf0;margin-bottom:.75rem;">Checklist — try each step:</div>
+    <div style="font-size:12px;color:#8b90a4;line-height:2;">
+      ① In Apps Script, click <strong style="color:#e8eaf0">Run ▶</strong> on <code style="color:#a5f3fc">doGet</code> and <strong style="color:#e8eaf0">Authorize</strong> the app<br>
+      ② Deploy → <strong style="color:#e8eaf0">New Deployment</strong> (not re-deploy existing)<br>
+      ③ Execute as: <strong style="color:#e8eaf0">Me</strong> &nbsp;|&nbsp; Who has access: <strong style="color:#e8eaf0">Anyone</strong><br>
+      ④ Test your URL in a new browser tab — you should see <code style="color:#a5f3fc">{"pong":true}</code>
+    </div>
+  </div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+    <button onclick="location.reload()" style="padding:8px 20px;border-radius:100px;background:rgba(79,156,249,0.15);color:#7dd3fc;border:1px solid rgba(79,156,249,0.3);font-size:13px;cursor:pointer;">↺ Retry</button>
+    <button onclick="loadCSV()" style="padding:8px 20px;border-radius:100px;background:rgba(245,158,11,0.12);color:#fcd34d;border:1px solid rgba(245,158,11,0.25);font-size:13px;cursor:pointer;">Load from CSV instead</button>
+    <button onclick="window.open('https://script.google.com','_blank')" style="padding:8px 20px;border-radius:100px;background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2);font-size:13px;cursor:pointer;">Open Apps Script ↗</button>
+  </div>
 </div>
 <div id="toast"></div>
 
@@ -448,7 +468,7 @@ async function saveField(btn,rowIndex){
     const result=await jsonp(APPS_SCRIPT_URL,{
       action:'save',ttNumber:row['TT Number']||'',siteId:row['Site ID']||'',
       status:statusVal,remarks:remarksVal,updatedBy:updatedBy
-    },12000);
+    },30000);
     if(result&&result.result==='ok'){
       btn.className='btn-save saved';btn.textContent='✓ Saved';
       showToast('Saved to Google Sheets ✓','success');
@@ -480,7 +500,7 @@ function fetchLog(){
   const lc=document.getElementById('log-count');
   if(!lb)return;
   lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Loading...</td></tr>';
-  jsonp(APPS_SCRIPT_URL,{action:'getLog'},10000)
+  jsonp(APPS_SCRIPT_URL,{action:'getLog'},30000)
     .then(data=>{
       if(!data||!data.log){lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">No data.</td></tr>';return;}
       if(lc)lc.textContent=data.log.length+' entries';
@@ -775,17 +795,37 @@ function refreshData(){
 
 function loadData(){
   if(!APPS_SCRIPT_URL){ loadDemo(); return; }
-  document.getElementById('loading-msg').textContent='Fetching live data from Google Sheets...';
-  jsonp(APPS_SCRIPT_URL, {action:'getData'}, 15000)
+  document.getElementById('loading-msg').textContent='Connecting to Google Sheets...';
+  // First ping to check if script is alive
+  jsonp(APPS_SCRIPT_URL, {action:'ping'}, 30000)
+    .then(pong=>{
+      if(pong && pong.pong){
+        document.getElementById('loading-msg').textContent='Loading TT data...';
+        return jsonp(APPS_SCRIPT_URL, {action:'getData'}, 30000);
+      } else {
+        throw new Error('ping failed: '+ JSON.stringify(pong));
+      }
+    })
     .then(data=>{
       if(data && data.result==='ok' && data.rows){
         buildDashboard(data.rows);
+      } else if(data && data.result==='error'){
+        showScriptError('Apps Script error: '+data.msg);
       } else {
-        console.warn('Apps Script getData failed, falling back to CSV:', data);
         loadCSV();
       }
     })
-    .catch(err=>{ console.warn('Apps Script load failed, falling back to CSV:', err); loadCSV(); });
+    .catch(err=>{
+      console.error('Apps Script failed:', err);
+      showScriptError(err.message||'timeout');
+    });
+}
+
+function showScriptError(msg){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='none';
+  document.getElementById('script-error').style.display='flex';
+  document.getElementById('script-error-msg').textContent=msg;
 }
 
 function loadCSV(){
