@@ -247,7 +247,11 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <span style="font-size:11px;color:var(--muted);">Logged in as <strong id="username-label" style="color:var(--text);cursor:pointer;" onclick="document.getElementById('username-modal').style.display='flex'">—</strong></span>
-        <button class="btn-refresh" onclick="refreshData()">
+        <button class="btn-refresh" style="background:rgba(124,92,252,0.1);color:#a78bfa;border-color:rgba(124,92,252,0.3);" onclick="document.getElementById('setup-panel').style.display=document.getElementById('setup-panel').style.display==='none'?'block':'none';window.scrollTo({top:0,behavior:'smooth'});" title="Toggle Apps Script setup">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+        Apps Script
+      </button>
+      <button class="btn-refresh" onclick="refreshData()">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.07-3.45L10 6h5V1l-1.35 1.35z" fill="currentColor"/></svg>
         Refresh Data
       </button>
@@ -259,7 +263,7 @@
 <div class="container">
 
   <!-- Apps Script Setup Panel -->
-  <div id="setup-panel" class="script-panel">
+  <div id="setup-panel" class="script-panel" style="display:none">
     <div class="script-panel-title">
       <svg width="15" height="15" viewBox="0 0 20 20" fill="none"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14a6 6 0 110-12 6 6 0 010 12zm1-7h-2V7h2v2zm0 4h-2v-2h2v2z" fill="currentColor"/></svg>
       Apps Script Setup — Enable Write-Back to Google Sheets
@@ -699,13 +703,15 @@ function buildDashboard(rows){
       down.map(r=>r['Site ID']).join(', ')+' — Immediate escalation required.';
   }
 
-  // Setup panel — always show script code, but collapse steps if already connected
+  // Setup panel — hide when URL already configured, show when not
   if(APPS_SCRIPT_URL){
+    document.getElementById('setup-panel').style.display='none';
     document.getElementById('setup-steps').style.display='none';
     document.getElementById('connect-row').style.display='none';
     document.getElementById('connected-row').style.display='flex';
     document.getElementById('edit-note').textContent='— changes sync to Google Sheets';
   } else {
+    document.getElementById('setup-panel').style.display='block';
     document.getElementById('setup-steps').style.display='block';
     document.getElementById('connect-row').style.display='flex';
     document.getElementById('connected-row').style.display='none';
