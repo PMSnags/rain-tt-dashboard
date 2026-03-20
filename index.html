@@ -397,13 +397,13 @@
 </div>
 
 <div class="footer">
-  <div>CARLOS.BANTOG@DU.AE - TT & Outages Dashboard — Confidential, Internal Use Only - Contact me directly for any issues</div>
+  <div><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="773436253b382459353639233830373322593632">[email&#160;protected]</a> - TT & Outages Dashboard — Confidential, Internal Use Only - Contact me directly for any issues</div>
   <div>Generated: <span id="footer-date">—</span></div>
 </div>
 
 </div><!-- /#app -->
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 const RED='#f43f5e',GREEN='#22c55e',AMBER='#f59e0b';
 const CA='#7c5cfc',CB='#4f9cf9',CC='#14b8a6';
 const tickC='#8b90a4',gridC='rgba(255,255,255,0.05)';
@@ -468,8 +468,48 @@ function gasCall(params, timeoutMs){
   });
 }
 
-// gasSave = same as gasCall (all via GET+JSONP)
-function gasSave(params){ return gasCall(params, 30000); }
+// ── gasSave: JSONP first (Chrome), falls back to no-cors fetch (Edge) ───
+function gasSave(params){
+  return new Promise(function(resolve){
+    var qs=Object.entries(params)
+      .map(function(kv){return encodeURIComponent(kv[0])+'='+encodeURIComponent(kv[1]);})
+      .join('&');
+    var url=APPS_SCRIPT_URL+'?'+qs;
+    var cbName='_sv_'+Date.now();
+    var done=false;
+    var s=document.createElement('script');
+
+    // After 8s, if JSONP hasn't replied, fall back to no-cors (Edge/Safari)
+    var timer=setTimeout(function(){
+      if(done)return; done=true;
+      delete window[cbName];
+      if(s.parentNode)s.parentNode.removeChild(s);
+      fetch(url+'&callback=nocors',{mode:'no-cors'})
+        .then(function(){resolve({result:'ok',via:'no-cors'});})
+        .catch(function(){resolve({result:'ok',via:'no-cors-fallback'});});
+    },8000);
+
+    window[cbName]=function(data){
+      if(done)return; done=true;
+      clearTimeout(timer);
+      delete window[cbName];
+      if(s.parentNode)s.parentNode.removeChild(s);
+      resolve(data);
+    };
+
+    s.onerror=function(){
+      if(done)return; done=true;
+      clearTimeout(timer);
+      delete window[cbName];
+      fetch(url+'&callback=nocors',{mode:'no-cors'})
+        .then(function(){resolve({result:'ok',via:'no-cors-onerror'});})
+        .catch(function(){resolve({result:'ok',via:'no-cors-fallback'});});
+    };
+
+    s.src=url+'&callback='+cbName;
+    document.head.appendChild(s);
+  });
+}
 
 // ── Save via JSONP GET ────────────────────────────────────────────────────
 async function saveField(btn,rowIndex){
@@ -498,13 +538,14 @@ async function saveField(btn,rowIndex){
       updatedBy:  updatedBy
     });
     if(result&&result.result==='ok'){
-      btn.className='btn-save saved';btn.textContent='✓ Saved';
-      showToast('Saved to Google Sheets ✓','success');
+      var viaNoCors=result.via&&result.via.includes('no-cors');
+      btn.className='btn-save saved';
+      btn.textContent=viaNoCors?'✓ Sent':'✓ Saved';
+      showToast(viaNoCors?'Sent — refresh in a few seconds to confirm ✓':'Saved to Google Sheets ✓','success');
       allRows[rowIndex]['TT Status']=statusVal;
       allRows[rowIndex]['Current site status']=siteStatusVal;
       allRows[rowIndex]['Site Down Yes/ No']=siteDownVal;
       allRows[rowIndex]['Additional remarks']=remarksVal;
-      // Re-run KPI counts immediately without waiting for refresh
       updateKPIs();
       setTimeout(fetchLog,1500);
     } else if(result&&result.result==='not_found'){
@@ -840,26 +881,6 @@ function downloadExcel(){
   showToast('Downloaded ✓','success');
 }
 
-function downloadExcel(){
-  if(!allRows||allRows.length===0){showToast('No data to download','error');return;}
-  var headers=Object.keys(allRows[0]);
-  var csv=[headers.join(',')];
-  allRows.forEach(function(r){
-    var row=headers.map(function(h){
-      var v=String(r[h]||'').replace(/"/g,'""');
-      return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v+'"':v;
-    });
-    csv.push(row.join(','));
-  });
-  var blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8;'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;
-  a.download='Rain_TT_Tracker_'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a);a.click();
-  document.body.removeChild(a);URL.revokeObjectURL(url);
-  showToast('Downloaded ✓','success');
-}
 
 function loadData(){
   document.getElementById('loading-msg').textContent='Loading data...';
@@ -931,11 +952,4 @@ function loadDemo(){
   buildDashboard([
     {'TT Date':'20 Mar 2026','TT Number':'TT001','TT Descrition':'Mains Failure','TT  priority':'2','Site ID':'DXB1246','Region':'DXB_NE','Alarm Category':'Commercial Power','Site Class':'Class A','Site Down Yes/ No':'Yes','Current site status':'Off air','ETC leading':'Yes','Rootcause':'Power Failure from ETC','TT Status':'On going','FE name attending the TT':'XXX','Additional remarks':'Waiting for ETC feedback'},
     {'TT Date':'20 Mar 2026','TT Number':'TT002','TT Descrition':'Airconditioning failure','TT  priority':'3','Site ID':'AUH2423','Region':'AUH','Alarm Category':'Aircon Failure','Site Class':'Class C','Site Down Yes/ No':'No','Current site status':'On air','ETC leading':'No','Rootcause':'','TT Status':'On going','FE name attending the TT':'XXX','Additional remarks':'FLM on site'},
-    {'TT Date':'20 Mar 2026','TT Number':'TT003','TT Descrition':'Room thermostat','TT  priority':'3','Site ID':'DXB1248','Region':'DXB_NE','Alarm Category':'High Temperature','Site Class':'Class B','Site Down Yes/ No':'No','Current site status':'On air','ETC leading':'No','Rootcause':'','TT Status':'On going','FE name attending the TT':'XXX','Additional remarks':'FLM on site'},
-  ]);
-}
-
-loadData();
-</script>
-</body>
-</html>
+    {'TT Date':'20 Mar 2026','TT Number':'TT003','TT Descrition':'Room thermostat','TT  priority':'3','Site ID':'DXB1248','Region':'DXB_NE','Alarm Category':'High Temperature','Site Class':'Class B',
