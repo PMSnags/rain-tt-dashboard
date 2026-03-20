@@ -24,7 +24,7 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   #loading p{font-size:13px;color:var(--muted);}
 
-  /* Header  */
+  /* Header */
   .header{background:linear-gradient(135deg,#1a0305 0%,#2d0508 40%,#1a0305 100%);border-bottom:1px solid rgba(180,20,30,0.3);padding:1.2rem 3rem;position:relative;overflow:hidden;}
   .header::before{content:'';position:absolute;top:-60px;right:-60px;width:380px;height:380px;background:radial-gradient(circle,rgba(200,20,30,0.18) 0%,transparent 70%);pointer-events:none;}
   .header::after{content:'';position:absolute;bottom:-40px;left:30%;width:300px;height:300px;background:radial-gradient(circle,rgba(160,10,20,0.12) 0%,transparent 70%);pointer-events:none;}
@@ -670,8 +670,8 @@ function buildDashboard(rows){
   document.getElementById('footer-date').textContent=today;
   const addBtn=document.getElementById('add-new-tt-btn');
   if(addBtn) addBtn.href='https://docs.google.com/spreadsheets/d/'+SPREADSHEET_ID+'/edit#gid=0';
-  document.getElementById('b-down').textContent=n(down.length);
-  document.getElementById('b-onair').textContent=n(openRows.length-down.length);
+  var _bd=document.getElementById('b-down'); if(_bd) _bd.textContent=n(down.length);
+  var _bo=document.getElementById('b-onair'); if(_bo) _bo.textContent=n(openRows.length-down.length);
 
   document.getElementById('kpi-total').textContent=n(total);
   document.getElementById('kpi-open').textContent=n(openRows.length);
@@ -967,8 +967,8 @@ function updateKPIs(){
   document.getElementById('kpi-open').textContent=n(openRows.length);
   document.getElementById('kpi-down').textContent=n(down.length);
   document.getElementById('kpi-closed').textContent=n(closedRows.length);
-  document.getElementById('b-down').textContent=n(down.length);
-  document.getElementById('b-onair').textContent=n(openRows.length-down.length);
+  var _bd=document.getElementById('b-down'); if(_bd) _bd.textContent=n(down.length);
+  var _bo=document.getElementById('b-onair'); if(_bo) _bo.textContent=n(openRows.length-down.length);
   
   updateAlertBanners(openRows, down, allRows);
 }
