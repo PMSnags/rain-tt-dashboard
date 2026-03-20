@@ -293,10 +293,18 @@
 
 <div class="container">
 
-  <!-- Alert banner -->
-  <div id="alert-banner" class="alert-banner" style="display:none">
-    <div class="alert-dot"></div>
-    <div class="alert-text" id="alert-text"></div>
+  <!-- Alert banners -->
+  <div id="alert-offair" class="alert-banner" style="display:none;background:rgba(244,63,94,0.08);border-color:rgba(244,63,94,0.2);">
+    <div class="alert-dot" style="background:#f43f5e;"></div>
+    <div class="alert-text" id="alert-offair-text" style="color:#f87171;"></div>
+  </div>
+  <div id="alert-sitedown" class="alert-banner" style="display:none;background:rgba(245,158,11,0.07);border-color:rgba(245,158,11,0.25);">
+    <div class="alert-dot" style="background:#f59e0b;animation-delay:.3s;"></div>
+    <div class="alert-text" id="alert-sitedown-text" style="color:#fcd34d;"></div>
+  </div>
+  <div id="alert-opentt" class="alert-banner" style="display:none;background:rgba(79,156,249,0.07);border-color:rgba(79,156,249,0.2);">
+    <div class="alert-dot" style="background:#4f9cf9;animation-delay:.6s;"></div>
+    <div class="alert-text" id="alert-opentt-text" style="color:#7dd3fc;"></div>
   </div>
 
   <!-- KPI Cards -->
@@ -714,15 +722,8 @@ function buildDashboard(rows){
   document.getElementById('kpi-closed').textContent=n(closedRows.length);
   document.getElementById('kpi-sub').textContent=regions.map(r=>r+': '+rows.filter(x=>x['Region']===r).length).join(' · ');
 
-  // Alert banner — only for open off-air sites
-  if(down.length>0){
-    document.getElementById('alert-banner').style.display='flex';
-    document.getElementById('alert-text').innerHTML=
-      '<strong>'+down.length+' SITE(S) OFF AIR:</strong> '+
-      down.map(r=>r['Site ID']).join(', ')+' — Immediate escalation required.';
-  } else {
-    document.getElementById('alert-banner').style.display='none';
-  }
+  // Alert banners
+  updateAlertBanners(openRows, down, rows);
 
   document.getElementById('edit-note').textContent='— changes sync to Google Sheets';
 
@@ -858,6 +859,53 @@ function buildTTRow(r, idx){
   </tr>`;
 }
 
+function updateAlertBanners(openRows, down, allRows){
+  // Banner 1: Sites Off Air (red) — highest priority
+  var offAir=down.filter(function(r){
+    return (r['Current site status']||'').toLowerCase().includes('off');
+  });
+  var offAirEl=document.getElementById('alert-offair');
+  var offAirTxt=document.getElementById('alert-offair-text');
+  if(offAir.length>0){
+    offAirEl.style.display='flex';
+    offAirTxt.innerHTML='<strong>&#9888; '+offAir.length+' SITE(S) OFF AIR:</strong> '+
+      offAir.map(function(r){return r['Site ID'];}).join(', ')+' — Immediate escalation required.';
+  } else {
+    offAirEl.style.display='none';
+  }
+
+  // Banner 2: Sites Down Yes (amber) — sites marked down but may be on air
+  var siteDown=(openRows||allRows).filter(function(r){
+    return (r['Site Down Yes/ No']||'').toUpperCase()==='YES';
+  });
+  var downEl=document.getElementById('alert-sitedown');
+  var downTxt=document.getElementById('alert-sitedown-text');
+  if(siteDown.length>0){
+    downEl.style.display='flex';
+    downTxt.innerHTML='<strong>&#9679; '+siteDown.length+' SITE(S) MARKED DOWN:</strong> '+
+      [...new Set(siteDown.map(function(r){return r['Site ID'];}))].join(', ')+' — Site Down = Yes on open tickets.';
+  } else {
+    downEl.style.display='none';
+  }
+
+  // Banner 3: Open TTs count (blue) — informational
+  var openCount=(openRows||[]).length;
+  var openEl=document.getElementById('alert-opentt');
+  var openTxt=document.getElementById('alert-opentt-text');
+  if(openCount>0){
+    openEl.style.display='flex';
+    var byRegion={};
+    (openRows||[]).forEach(function(r){
+      var reg=r['Region']||'Unknown';
+      byRegion[reg]=(byRegion[reg]||0)+1;
+    });
+    var regionSummary=Object.entries(byRegion).map(function(kv){return kv[0]+': '+kv[1];}).join(' · ');
+    openTxt.innerHTML='<strong>&#8505; '+openCount+' OPEN TT'+(openCount!==1?'s':'')+'</strong> — '+regionSummary;
+  } else {
+    openEl.style.display='none';
+  }
+}
+
 function setTTFilter(filter, btn){
   window._ttFilter=filter;
   window._ttPage=1;
@@ -978,12 +1026,7 @@ function updateKPIs(){
   document.getElementById('b-down').textContent=n(down.length);
   document.getElementById('b-onair').textContent=n(openRows.length-down.length);
   // Update alert banner
-  if(down.length>0){
-    document.getElementById('alert-banner').style.display='flex';
-    document.getElementById('alert-text').innerHTML='<strong>'+down.length+' SITE(S) OFF AIR:</strong> '+down.map(r=>r['Site ID']).join(', ')+' — Immediate escalation required.';
-  } else {
-    document.getElementById('alert-banner').style.display='none';
-  }
+  updateAlertBanners(openRows, down, allRows);
 }
 
 function markDirty(idx){
