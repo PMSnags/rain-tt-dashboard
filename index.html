@@ -193,6 +193,18 @@
   .footer{border-top:1px solid var(--border);padding:1.5rem 3rem;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);}
   .footer span{color:var(--text);}
 
+  /* TT filter buttons */
+  .tt-filter-btn{display:inline-flex;align-items:center;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:500;border:1px solid var(--border2);background:var(--bg2);color:var(--muted);cursor:pointer;transition:all .18s;}
+  .tt-filter-btn:hover{border-color:rgba(79,156,249,0.4);color:var(--text);}
+  .tt-filter-btn.active{background:rgba(79,156,249,0.15);border-color:rgba(79,156,249,0.5);color:#7dd3fc;}
+  .tt-filter-btn[data-filter="open"].active{background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.5);color:#fcd34d;}
+  .tt-filter-btn[data-filter="closed"].active{background:rgba(34,197,94,0.12);border-color:rgba(34,197,94,0.4);color:#4ade80;}
+  /* Pagination */
+  .pg-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:6px;font-size:12px;border:1px solid var(--border2);background:var(--bg2);color:var(--muted);cursor:pointer;transition:all .18s;}
+  .pg-btn:hover{border-color:var(--border2);color:var(--text);background:var(--bg3);}
+  .pg-btn.active{background:rgba(79,156,249,0.15);border-color:rgba(79,156,249,0.5);color:#7dd3fc;font-weight:600;}
+  .pg-btn:disabled{opacity:.35;cursor:not-allowed;}
+
   @media(max-width:900px){
     .metrics-grid{grid-template-columns:repeat(2,1fr);}
     .charts-row,.region-grid{grid-template-columns:1fr;}
@@ -356,35 +368,69 @@
   </div>
 
   <!-- Active TT Log -->
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:2rem;margin-bottom:1.25rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);">
-    <p style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0;">Active TT Log <span id="edit-note" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-left:6px;"></span></p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <a id="add-new-tt-btn" href="#" target="_blank"
-         style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:12px;font-weight:500;background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25);text-decoration:none;transition:background .2s;"
-         onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.1)'">
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/></svg>
-        Add New Ticket
-      </a>
-      <button id="btn-download-excel" onclick="downloadExcel()"
-         style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:12px;font-weight:500;background:rgba(79,156,249,0.1);color:#7dd3fc;border:1px solid rgba(79,156,249,0.25);cursor:pointer;transition:background .2s;"
-         onmouseover="this.style.background='rgba(79,156,249,0.2)'" onmouseout="this.style.background='rgba(79,156,249,0.1)'">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5.5 7.5M8 10l2.5-2.5M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Download Excel
-      </button>
+  <div style="margin-top:2rem;">
+    <!-- Header row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);">
+      <p style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0;">
+        TT Log <span id="tt-count-label" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-left:6px;"></span>
+        <span id="edit-note" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-left:6px;"></span>
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <a id="add-new-tt-btn" href="#" target="_blank"
+           style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:12px;font-weight:500;background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25);text-decoration:none;transition:background .2s;"
+           onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.1)'">
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/></svg>
+          Add New Ticket
+        </a>
+        <button onclick="downloadExcel()"
+           style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:100px;font-size:12px;font-weight:500;background:rgba(79,156,249,0.1);color:#7dd3fc;border:1px solid rgba(79,156,249,0.25);cursor:pointer;transition:background .2s;"
+           onmouseover="this.style.background='rgba(79,156,249,0.2)'" onmouseout="this.style.background='rgba(79,156,249,0.1)'">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5.5 7.5M8 10l2.5-2.5M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Download CSV
+        </button>
+      </div>
     </div>
-  </div>
-  <div class="chart-card" style="margin-bottom:20px;padding:1.25rem 1.5rem;overflow-x:auto;">
-    <table class="tt-table">
-      <thead>
-        <tr>
-          <th>TT Date</th><th>TT Number</th><th>Description</th><th>Priority</th>
-          <th>Site ID</th><th>Region</th><th>Alarm Category</th><th>Class</th>
-          <th>Site Down ✏️</th><th>Site Status ✏️</th><th>ETC</th><th>Root Cause</th>
-          <th>TT Status ✏️</th><th>FE Name</th><th>Remarks ✏️</th><th>Save</th>
-        </tr>
-      </thead>
-      <tbody id="tt-tbody"></tbody>
-    </table>
+
+    <!-- Filter bar -->
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;">
+      <!-- Status filter buttons -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="tt-filter-btn active" data-filter="all"    onclick="setTTFilter('all',this)">All</button>
+        <button class="tt-filter-btn"         data-filter="open"   onclick="setTTFilter('open',this)">Open</button>
+        <button class="tt-filter-btn"         data-filter="closed" onclick="setTTFilter('closed',this)">Closed</button>
+      </div>
+      <!-- Region filter -->
+      <select id="tt-region-filter" onchange="applyTTFilters()" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:5px 10px;cursor:pointer;">
+        <option value="">All Regions</option>
+      </select>
+      <!-- Search -->
+      <div style="flex:1;min-width:180px;max-width:320px;position:relative;">
+        <svg width="13" height="13" viewBox="0 0 20 20" fill="none" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="9" cy="9" r="6" stroke="#8b90a4" stroke-width="1.5"/><path d="M13.5 13.5L17 17" stroke="#8b90a4" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <input type="text" id="tt-search" placeholder="Search Site ID, TT Number, Description..." oninput="applyTTFilters()"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:5px 10px 5px 30px;outline:none;transition:border-color .2s;"
+          onfocus="this.style.borderColor='rgba(79,156,249,0.5)'" onblur="this.style.borderColor=''">
+      </div>
+      <!-- Results count -->
+      <span id="tt-filter-count" style="font-size:11px;color:var(--muted);white-space:nowrap;"></span>
+    </div>
+
+    <!-- Table -->
+    <div class="chart-card" style="margin-bottom:8px;padding:1.25rem 1.5rem;overflow-x:auto;">
+      <table class="tt-table">
+        <thead>
+          <tr>
+            <th>TT Date</th><th>TT Number</th><th>Description</th><th>Priority</th>
+            <th>Site ID</th><th>Region</th><th>Alarm Category</th><th>Class</th>
+            <th>Site Down ✏️</th><th>Site Status ✏️</th><th>ETC</th><th>Root Cause</th>
+            <th>TT Status ✏️</th><th>FE Name</th><th>Remarks ✏️</th><th>Save</th>
+          </tr>
+        </thead>
+        <tbody id="tt-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div id="tt-pagination" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:.75rem 0 1.5rem;"></div>
   </div>
 
   <!-- Update Log -->
@@ -733,40 +779,27 @@ function buildDashboard(rows){
   buildRegionTable('tbody-dxb-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
   buildRegionTable('tbody-auh-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
 
-  // TT Log with editable fields
+  // ── TT Log: filter state ────────────────────────────────────────────────
+  // Populate region dropdown dynamically
+  const uniqueRegionsForFilter=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))].sort();
+  const regSel=document.getElementById('tt-region-filter');
+  if(regSel){
+    regSel.innerHTML='<option value="">All Regions</option>';
+    uniqueRegionsForFilter.forEach(function(r){
+      var o=document.createElement('option');o.value=r;o.textContent=r;
+      regSel.appendChild(o);
+    });
+  }
+
+  // Build all TT rows and store on window for filtering
   const statusOptions=['On going','Pending','Escalated','Resolved','Closed'];
   const siteStatusOptions=['On air','Off air'];
-  document.getElementById('tt-tbody').innerHTML=rows.map((r,idx)=>{
-    const curSiteStatus=r['Current site status']||'On air';
-    const isDown=curSiteStatus.toLowerCase().includes('off');
-    const isClosed=(r['TT Status']||'').toUpperCase().includes('CLOSED');
-    const cls=(r['Site Class']||'');
-    const pillCls=cls.toUpperCase().includes('A')?'pill-A':cls.toUpperCase().includes('B')?'pill-B':'pill-C';
-    const curStatus=r['TT Status']||'On going';
-    const curRemarks=r['Additional remarks']||'';
-    const region=(r['Region']||'').toUpperCase();
-    const statusSel=statusOptions.map(s=>`<option value="${s}"${s===curStatus?' selected':''}>${s}</option>`).join('');
-    const siteStatusSel=siteStatusOptions.map(s=>`<option value="${s}"${s.toLowerCase()===curSiteStatus.toLowerCase()?' selected':''}>${s}</option>`).join('');
-    const rowStyle=isClosed?'opacity:0.55;':'';
-    return`<tr style="${rowStyle}">
-      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap">${(r['TT Date']||'—').toString().split(' ').slice(0,3).join(' ').replace(/\s*GMT.*/,'').trim()||'—'}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px">${r['TT Number']||'—'}</td>
-      <td style="font-weight:500;white-space:nowrap">${isClosed?'<s style=\"color:var(--muted)\">'+(r['TT Descrition']||r['TT Description']||'—')+'</s>':r['TT Descrition']||r['TT Description']||'—'}</td>
-      <td style="text-align:center;font-family:'DM Mono',monospace">${r['TT  priority']||r['TT priority']||'—'}</td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px">${r['Site ID']||'—'}</td>
-      <td><span class="region-chip">${region||'—'}</span></td>
-      <td style="font-size:11px;color:var(--muted)">${r['Alarm Category']||'—'}</td>
-      <td><span class="pill ${pillCls}">${cls||'—'}</span></td>
-      <td style="min-width:90px"><select id="sel-sitedown-${idx}" class="edit-select" onchange="markDirty(${idx})">${['Yes','No'].map(s=>`<option value="${s}"${(r['Site Down Yes/ No']||'No')===s?' selected':''}>${s}</option>`).join('')}</select></td>
-      <td style="min-width:110px"><select id="sel-sitestat-${idx}" class="edit-select" onchange="markDirty(${idx})">${siteStatusSel}</select></td>
-      <td style="text-align:center;font-size:11px;color:${(r['ETC leading']||'').toLowerCase()==='yes'?AMBER:GREEN}">${r['ETC leading']||'—'}</td>
-      <td style="font-size:11px;color:var(--muted);max-width:120px">${r['Rootcause']||'—'}</td>
-      <td style="min-width:130px"><select id="sel-status-${idx}" class="edit-select" onchange="onStatusChange(${idx})">${statusSel}</select></td>
-      <td style="font-family:'DM Mono',monospace;font-size:11px">${r['FE name attending the TT']||'—'}</td>
-      <td style="min-width:180px"><textarea id="txt-remarks-${idx}" class="edit-textarea" rows="2" onchange="markDirty(${idx})">${curRemarks}</textarea></td>
-      <td><button id="btn-save-${idx}" class="btn-save" onclick="saveField(this,${idx})">Save</button></td>
-    </tr>`;
-  }).join('');
+  window._ttAllRows=rows.map(function(r,idx){return{r:r,idx:idx};});
+  window._ttFilter='all';
+  window._ttPage=1;
+  window._ttPageSize=20;
+
+  applyTTFilters();
 
   // Charts
   const incData=classes.map(cls=>alarmCats.map(a=>rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()&&mapAlarm(r['Alarm Category'])===a).length));
@@ -788,6 +821,134 @@ function buildDashboard(rows){
   } else {
     document.getElementById('username-label').textContent=storedName;
   }
+}
+
+function buildTTRow(r, idx){
+  const curSiteStatus=r['Current site status']||'On air';
+  const isDown=curSiteStatus.toLowerCase().includes('off');
+  const isClosed=(r['TT Status']||'').toUpperCase().includes('CLOSED');
+  const cls=(r['Site Class']||'');
+  var pillCls=cls.toUpperCase().includes('A')?'pill-A':cls.toUpperCase().includes('B')?'pill-B':'pill-C';
+  const curStatus=r['TT Status']||'On going';
+  const curRemarks=(r['Additional remarks']||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const region=(r['Region']||'').toUpperCase();
+  const statusOptions=['On going','Pending','Escalated','Resolved','Closed'];
+  const siteStatusOptions=['On air','Off air'];
+  const statusSel=statusOptions.map(s=>`<option value="${s}"${s===curStatus?' selected':''}>${s}</option>`).join('');
+  const siteStatusSel=siteStatusOptions.map(s=>`<option value="${s}"${s.toLowerCase()===curSiteStatus.toLowerCase()?' selected':''}>${s}</option>`).join('');
+  const rowStyle=isClosed?'opacity:0.55;':'';
+  const dateStr=(r['TT Date']||'—').toString().split(' ').slice(0,3).join(' ').replace(/\s*GMT.*/,'').trim()||'—';
+  return`<tr style="${rowStyle}">
+    <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap">${dateStr}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:11px">${r['TT Number']||'—'}</td>
+    <td style="font-weight:500;white-space:nowrap">${isClosed?'<s style="color:var(--muted)">'+(r['TT Descrition']||r['TT Description']||'—')+'</s>':r['TT Descrition']||r['TT Description']||'—'}</td>
+    <td style="text-align:center;font-family:'DM Mono',monospace">${r['TT  priority']||r['TT priority']||'—'}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:11px">${r['Site ID']||'—'}</td>
+    <td><span class="region-chip">${region||'—'}</span></td>
+    <td style="font-size:11px;color:var(--muted)">${r['Alarm Category']||'—'}</td>
+    <td><span class="pill ${pillCls}">${cls||'—'}</span></td>
+    <td style="min-width:90px"><select id="sel-sitedown-${idx}" class="edit-select" onchange="markDirty(${idx})">${['Yes','No'].map(s=>`<option value="${s}"${(r['Site Down Yes/ No']||'No')===s?' selected':''}>${s}</option>`).join('')}</select></td>
+    <td style="min-width:110px"><select id="sel-sitestat-${idx}" class="edit-select" onchange="markDirty(${idx})">${siteStatusSel}</select></td>
+    <td style="text-align:center;font-size:11px;color:${(r['ETC leading']||'').toLowerCase()==='yes'?AMBER:GREEN}">${r['ETC leading']||'—'}</td>
+    <td style="font-size:11px;color:var(--muted);max-width:120px">${r['Rootcause']||'—'}</td>
+    <td style="min-width:130px"><select id="sel-status-${idx}" class="edit-select" onchange="onStatusChange(${idx})">${statusSel}</select></td>
+    <td style="font-family:'DM Mono',monospace;font-size:11px">${r['FE name attending the TT']||'—'}</td>
+    <td style="min-width:180px"><textarea id="txt-remarks-${idx}" class="edit-textarea" rows="2" onchange="markDirty(${idx})">${curRemarks}</textarea></td>
+    <td><button id="btn-save-${idx}" class="btn-save" onclick="saveField(this,${idx})">Save</button></td>
+  </tr>`;
+}
+
+function setTTFilter(filter, btn){
+  window._ttFilter=filter;
+  window._ttPage=1;
+  document.querySelectorAll('.tt-filter-btn').forEach(function(b){b.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+  applyTTFilters();
+}
+
+function applyTTFilters(){
+  if(!window._ttAllRows) return;
+  const filter=window._ttFilter||'all';
+  const search=(document.getElementById('tt-search')?.value||'').toLowerCase().trim();
+  const region=(document.getElementById('tt-region-filter')?.value||'').toUpperCase();
+
+  // Filter
+  var filtered=window._ttAllRows.filter(function(item){
+    const r=item.r;
+    const status=(r['TT Status']||'').toUpperCase();
+    const isClosed=status.includes('CLOSED')||status.includes('RESOLVED');
+    if(filter==='open' && isClosed) return false;
+    if(filter==='closed' && !isClosed) return false;
+    if(region && (r['Region']||'').toUpperCase()!==region) return false;
+    if(search){
+      const haystack=[r['Site ID'],r['TT Number'],r['TT Descrition'],r['TT Description'],
+                      r['Alarm Category'],r['Rootcause'],r['Additional remarks']].join(' ').toLowerCase();
+      if(!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Pagination
+  const pageSize=window._ttPageSize||20;
+  const totalPages=Math.max(1,Math.ceil(filtered.length/pageSize));
+  if(window._ttPage>totalPages) window._ttPage=1;
+  const page=window._ttPage||1;
+  const start=(page-1)*pageSize;
+  const pageRows=filtered.slice(start, start+pageSize);
+
+  // Render rows
+  const tbody=document.getElementById('tt-tbody');
+  if(tbody){
+    if(pageRows.length===0){
+      tbody.innerHTML='<tr><td colspan="16" style="text-align:center;color:var(--muted);padding:2rem;">No tickets match your filters.</td></tr>';
+    } else {
+      tbody.innerHTML=pageRows.map(function(item){ return buildTTRow(item.r, item.idx); }).join('');
+    }
+  }
+
+  // Update count label
+  const label=document.getElementById('tt-count-label');
+  if(label) label.textContent='— showing '+filtered.length+' of '+(window._ttAllRows.length)+' tickets';
+
+  const fcLabel=document.getElementById('tt-filter-count');
+  if(fcLabel) fcLabel.textContent=filtered.length+' result'+(filtered.length!==1?'s':'');
+
+  // Render pagination
+  renderPagination(page, totalPages, filtered.length, pageSize);
+}
+
+function renderPagination(page, totalPages, total, pageSize){
+  const el=document.getElementById('tt-pagination');
+  if(!el) return;
+  if(totalPages<=1){ el.innerHTML=''; return; }
+
+  const start=(page-1)*pageSize+1;
+  const end=Math.min(page*pageSize, total);
+
+  var pages='';
+  // Always show first, last, and up to 2 around current
+  var toShow=new Set([1, totalPages, page, page-1, page+1].filter(function(p){return p>=1&&p<=totalPages;}));
+  var sorted=[...toShow].sort(function(a,b){return a-b;});
+  var prev=-1;
+  sorted.forEach(function(p){
+    if(prev>0 && p-prev>1) pages+='<span style="color:var(--muted);padding:0 4px;">…</span>';
+    pages+=`<button class="pg-btn${p===page?' active':''}" onclick="gotoPage(${p})">${p}</button>`;
+    prev=p;
+  });
+
+  el.innerHTML=`
+    <span style="font-size:11px;color:var(--muted);">Showing ${start}–${end} of ${total}</span>
+    <div style="display:flex;align-items:center;gap:4px;">
+      <button class="pg-btn" onclick="gotoPage(${page-1})" ${page<=1?'disabled':''}>&#8249;</button>
+      ${pages}
+      <button class="pg-btn" onclick="gotoPage(${page+1})" ${page>=totalPages?'disabled':''}>&#8250;</button>
+    </div>`;
+}
+
+function gotoPage(p){
+  window._ttPage=p;
+  applyTTFilters();
+  document.getElementById('tt-tbody')?.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
 function setUsername(){
