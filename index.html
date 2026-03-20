@@ -751,39 +751,6 @@ function buildDashboard(rows){
   }
 }
 
-function fetchLog(){
-  if(!APPS_SCRIPT_URL)return;
-  var logBody=document.getElementById('log-body');
-  var logCount=document.getElementById('log-count');
-  if(!logBody)return;
-  gasCall({action:'getLog'},15000)
-    .then(function(data){
-      if(!data||!data.log)return;
-      if(logCount)logCount.textContent=data.log.length+' entries';
-      if(data.log.length===0){
-        logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No updates logged yet.</td></tr>';
-        return;
-      }
-      logBody.innerHTML=data.log.slice(0,10).map(function(r){
-        var logTs=r['Timestamp']?new Date(r['Timestamp']).toLocaleString('en-GB'):'—';
-        var changed=[];
-        if(r['Old TT Status']!==r['New TT Status'])changed.push('Status: <span style="color:var(--red)">'+r['Old TT Status']+'</span> → <span style="color:var(--green)">'+r['New TT Status']+'</span>');
-        if(r['Old Site Status']!==r['New Site Status'])changed.push('Site: <span style="color:var(--amber)">'+r['New Site Status']+'</span>');
-        if(String(r['Old Remarks']||'').trim()!==String(r['New Remarks']||'').trim())changed.push('Remarks updated');
-        return'<tr>'
-          +'<td style="white-space:nowrap;font-size:11px;color:var(--muted)">'+logTs+'</td>'
-          +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+r['TT Number']+'</td>'
-          +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+r['Site ID']+'</td>'
-          +'<td style="font-size:12px;font-weight:500;color:#7dd3fc">'+r['Updated By']+'</td>'
-          +'<td style="font-size:11px">'+changed.join(' | ')+'</td>'
-          +'<td style="font-size:11px;color:var(--muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r['New Remarks']+'</td>'
-          +'</tr>';
-      }).join('');
-    })
-    .catch(function(){
-      logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Log unavailable — saves still work.</td></tr>';
-    });
-}
 
 function setUsername(){
   const name=document.getElementById('username-input').value.trim();
@@ -820,30 +787,6 @@ function updateKPIs(){
   }
 }
 
-function onStatusChange(idx){
-  markDirty(idx);
-  var sel=document.getElementById('sel-status-'+idx);
-  var tr=sel.closest('tr');
-  if(tr) tr.style.opacity=sel.value==='Closed'?'0.55':'1';
-}
-
-function updateKPIs(){
-  var closedRows=allRows.filter(r=>(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  var openRows=allRows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  var down=openRows.filter(r=>(r['Current site status']||'').toLowerCase().includes('off'));
-  document.getElementById('kpi-total').textContent=n(allRows.length);
-  document.getElementById('kpi-open').textContent=n(openRows.length);
-  document.getElementById('kpi-down').textContent=n(down.length);
-  document.getElementById('kpi-closed').textContent=n(closedRows.length);
-  document.getElementById('b-down').textContent=n(down.length);
-  document.getElementById('b-onair').textContent=n(openRows.length-down.length);
-  if(down.length>0){
-    document.getElementById('alert-banner').style.display='flex';
-    document.getElementById('alert-text').innerHTML='<strong>'+down.length+' SITE(S) OFF AIR:</strong> '+down.map(r=>r['Site ID']).join(', ')+' — Immediate escalation required.';
-  } else {
-    document.getElementById('alert-banner').style.display='none';
-  }
-}
 
 function markDirty(idx){
   const btn=document.getElementById('btn-save-'+idx);
