@@ -862,7 +862,7 @@ function downloadExcel(){
 }
 
 function loadData(){
-  document.getElementById('loading-msg').textContent='Loading data from Google Sheets...';
+  document.getElementById('loading-msg').textContent='Loading data...';
   // Try Apps Script getData first (JSONP), fall back to CSV fetch, then demo
   gasCall({action:'getData'}, 20000)
     .then(function(data){
