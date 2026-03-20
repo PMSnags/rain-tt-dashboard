@@ -4,30 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rain TT & Outages Tracker</title>
-<!--
-  ============================================================
-  DIGITUS — Rain TT & Outages Dashboard v2
-  ============================================================
-  STEP 1 — GOOGLE SHEETS READ (CSV):
-    Already configured below as SHEET_CSV_URL.
 
-  STEP 2 — GOOGLE APPS SCRIPT (write-back):
-    1. Open your Google Sheet
-    2. Click Extensions > Apps Script
-    3. Delete any existing code and paste the script from
-       the APPS_SCRIPT_CODE block at the bottom of this file
-    4. Click Save, then Deploy > New Deployment
-    5. Type: Web App
-       Execute as: Me
-       Who has access: Anyone
-    6. Click Deploy, copy the Web App URL
-    7. Paste it into APPS_SCRIPT_URL below
-
-  HOSTING ON GITHUB PAGES:
-    Upload index.html + DGlogo.png to your repo root.
-    Settings > Pages > main branch / root.
-  ============================================================
--->
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
@@ -218,16 +195,15 @@
 <body>
 
 <script>
-  // ── CONFIG ────────────────────────────────────────────────────────────────
+  
   const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSy6Yz2sRdM3CfM_XSaqfntA1Uksqk6HwITZPQIB7iQ9SfGkSbITESJlkzqEFVJxRrGIyK5xtzjEHFB/pub?gid=0&single=true&output=csv';
 
-  // Paste your Google Apps Script Web App URL here after setup:
-  // ── Add your Google Spreadsheet ID here for the "Add New Ticket" link ──
-  // Find it in your sheet URL: docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+  
+  
   const SPREADSHEET_ID = '1TUUSlkznifmAyggs8Ngghkj_DYuNxO63leEeQLCMoHI';
 
   let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwtbSZ0JuZF_vi21ftdfQmjm1Qmo0hGTfgMeoescvrbSEFC5lSjrk5FxxL-Y96hcOX9BA/exec';
-  // ─────────────────────────────────────────────────────────────────────────
+  
 </script>
 
 <div id="loading">
@@ -293,7 +269,7 @@
 
 <div class="container">
 
-  <!-- Alert banners -->
+  
   <div id="alert-offair" class="alert-banner" style="display:none;background:rgba(244,63,94,0.08);border-color:rgba(244,63,94,0.2);">
     <div class="alert-dot" style="background:#f43f5e;"></div>
     <div class="alert-text" id="alert-offair-text" style="color:#f87171;"></div>
@@ -307,7 +283,7 @@
     <div class="alert-text" id="alert-opentt-text" style="color:#7dd3fc;"></div>
   </div>
 
-  <!-- KPI Cards -->
+  
   <div class="metrics-grid">
     <div class="metric-card mc-ongoing">
       <div class="metric-label">Open TTs</div>
@@ -331,11 +307,11 @@
     </div>
   </div>
 
-  <!-- Site Class Breakdown -->
+  
   <p class="section-title">Site Class Breakdown</p>
   <div class="class-grid" id="sc-cards"></div>
 
-  <!-- Region Summary Tables -->
+  
   <p class="section-title">Incident &amp; Outage Summary by Region</p>
   <div class="region-grid">
     <div class="region-card">
@@ -356,7 +332,7 @@
     </div>
   </div>
 
-  <!-- Charts -->
+  
   <p class="section-title">Nationwide Summary</p>
   <div class="charts-row">
     <div class="chart-card">
@@ -375,9 +351,9 @@
     </div>
   </div>
 
-  <!-- Active TT Log -->
+  
   <div style="margin-top:2rem;">
-    <!-- Header row -->
+    
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1rem;padding-bottom:.6rem;border-bottom:1px solid var(--border);">
       <p style="font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0;">
         TT Log <span id="tt-count-label" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-left:6px;"></span>
@@ -399,30 +375,30 @@
       </div>
     </div>
 
-    <!-- Filter bar -->
+    
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;">
-      <!-- Status filter buttons -->
+      
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="tt-filter-btn active" data-filter="all"    onclick="setTTFilter('all',this)">All</button>
         <button class="tt-filter-btn"         data-filter="open"   onclick="setTTFilter('open',this)">Open</button>
         <button class="tt-filter-btn"         data-filter="closed" onclick="setTTFilter('closed',this)">Closed</button>
       </div>
-      <!-- Region filter -->
+      
       <select id="tt-region-filter" onchange="applyTTFilters()" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:5px 10px;cursor:pointer;">
         <option value="">All Regions</option>
       </select>
-      <!-- Search -->
+      
       <div style="flex:1;min-width:180px;max-width:320px;position:relative;">
         <svg width="13" height="13" viewBox="0 0 20 20" fill="none" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;"><circle cx="9" cy="9" r="6" stroke="#8b90a4" stroke-width="1.5"/><path d="M13.5 13.5L17 17" stroke="#8b90a4" stroke-width="1.5" stroke-linecap="round"/></svg>
         <input type="text" id="tt-search" placeholder="Search Site ID, TT Number, Description..." oninput="applyTTFilters()"
           style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:5px 10px 5px 30px;outline:none;transition:border-color .2s;"
           onfocus="this.style.borderColor='rgba(79,156,249,0.5)'" onblur="this.style.borderColor=''">
       </div>
-      <!-- Results count -->
+      
       <span id="tt-filter-count" style="font-size:11px;color:var(--muted);white-space:nowrap;"></span>
     </div>
 
-    <!-- Table -->
+    
     <div class="chart-card" style="margin-bottom:8px;padding:1.25rem 1.5rem;overflow-x:auto;">
       <table class="tt-table">
         <thead>
@@ -437,11 +413,11 @@
       </table>
     </div>
 
-    <!-- Pagination -->
+    
     <div id="tt-pagination" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:.75rem 0 1.5rem;"></div>
   </div>
 
-  <!-- Update Log -->
+  
   <p class="section-title" style="margin-top:2rem;">Update Log <span id="log-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-left:6px;"></span></p>
   <div class="chart-card" style="margin-bottom:20px;padding:1.25rem 1.5rem;overflow-x:auto;">
     <table class="tt-table">
@@ -461,9 +437,8 @@
     </table>
   </div>
 
-</div><!-- /.container -->
+</div>
 
-<!-- Username modal -->
 <div id="username-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9998;display:flex;align-items:center;justify-content:center;">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:16px;padding:2rem;width:360px;max-width:90vw;">
     <div style="font-size:15px;font-weight:600;margin-bottom:.5rem;">Who are you?</div>
@@ -478,7 +453,7 @@
   <div>Generated: <span id="footer-date">—</span></div>
 </div>
 
-</div><!-- /#app -->
+</div>
 
 <script>
 const RED='#f43f5e',GREEN='#22c55e',AMBER='#f59e0b';
@@ -511,9 +486,6 @@ function mapAlarm(cat){
   return'Others';
 }
 
-// ── Apps Script caller via JSONP (only method that works cross-origin) ───
-// Google Apps Script redirects break fetch(). JSONP via <script> tag works
-// because script tags follow redirects natively in the browser.
 function gasCall(params, timeoutMs){
   return new Promise((resolve, reject)=>{
     const cbName = '_gas_' + Date.now() + '_' + Math.floor(Math.random()*99999);
@@ -545,35 +517,30 @@ function gasCall(params, timeoutMs){
   });
 }
 
-// ── gasSave: tries JSONP first, falls back to no-cors fetch ──────────────
-// JSONP works in Chrome. Edge sometimes blocks script-tag injection to
-// Google domains. no-cors fetch is fire-and-forget but reliably delivers.
 function gasSave(params){
   return new Promise(function(resolve){
-    // Build query string
+    
     var qs = Object.entries(params)
       .map(function(kv){ return encodeURIComponent(kv[0])+'='+encodeURIComponent(kv[1]); })
       .join('&');
     var url = APPS_SCRIPT_URL + '?' + qs;
 
-    // Method 1: JSONP (Chrome, Firefox — get response back)
     var cbName = '_sv_' + Date.now();
     var done = false;
     var s = document.createElement('script');
 
     var timer = setTimeout(function(){
-      // JSONP timed out — fall back to no-cors fetch (Edge, Safari)
+      
       if(done) return;
       done = true;
       delete window[cbName];
       if(s.parentNode) s.parentNode.removeChild(s);
 
-      // no-cors: data gets through but we can't read response
-      // We optimistically resolve ok after a short delay
+      
       fetch(url + '&callback=nocors', {mode:'no-cors'})
         .then(function(){ resolve({result:'ok', via:'no-cors'}); })
         .catch(function(){ resolve({result:'ok', via:'no-cors-fallback'}); });
-    }, 8000); // 8s — if JSONP hasn't replied by then, switch to no-cors
+    }, 8000); 
 
     window[cbName] = function(data){
       if(done) return;
@@ -589,7 +556,7 @@ function gasSave(params){
       done = true;
       clearTimeout(timer);
       delete window[cbName];
-      // Script tag blocked — go straight to no-cors
+      
       fetch(url + '&callback=nocors', {mode:'no-cors'})
         .then(function(){ resolve({result:'ok', via:'no-cors-onerror'}); })
         .catch(function(){ resolve({result:'ok', via:'no-cors-onerror-fallback'}); });
@@ -600,7 +567,6 @@ function gasSave(params){
   });
 }
 
-// ── Save via JSONP GET ────────────────────────────────────────────────────
 async function saveField(btn,rowIndex){
   if(!APPS_SCRIPT_URL){
     showToast('Connect Apps Script first — see setup panel above','error');
@@ -656,7 +622,6 @@ async function saveField(btn,rowIndex){
   setTimeout(()=>{btn.className='btn-save';btn.textContent='Save';btn.disabled=false;},3000);
 }
 
-// ── Fetch update log via JSONP ────────────────────────────────────────────
 function fetchLog(){
   if(!APPS_SCRIPT_URL)return;
   const lb=document.getElementById('log-body');
@@ -691,8 +656,6 @@ function fetchLog(){
 }
 function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-
-// ── Build dashboard ───────────────────────────────────────────────────────
 function buildDashboard(rows){
   rows=rows.map(norm).filter(r=>r['TT Date']||r['TT Number']||r['Site ID']);
   allRows=rows;
@@ -704,7 +667,6 @@ function buildDashboard(rows){
   const regions=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))];
   const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
 
-  // Header
   document.getElementById('m-total').textContent=n(total);
   document.getElementById('m-sites').textContent=n(new Set(rows.map(r=>r['Site ID'])).size);
   document.getElementById('m-regions').textContent=regions.join(' · ')||'—';
@@ -715,19 +677,16 @@ function buildDashboard(rows){
   document.getElementById('b-down').textContent=n(down.length);
   document.getElementById('b-onair').textContent=n(openRows.length-down.length);
 
-  // KPIs
   document.getElementById('kpi-total').textContent=n(total);
   document.getElementById('kpi-open').textContent=n(openRows.length);
   document.getElementById('kpi-down').textContent=n(down.length);
   document.getElementById('kpi-closed').textContent=n(closedRows.length);
   document.getElementById('kpi-sub').textContent=regions.map(r=>r+': '+rows.filter(x=>x['Region']===r).length).join(' · ');
 
-  // Alert banners
   updateAlertBanners(openRows, down, rows);
 
   document.getElementById('edit-note').textContent='— changes sync to Google Sheets';
 
-  // Site class cards
   const classes=['Class A','Class B','Class C'];
   const classKeys=['classA','classB','classC'];
   const classColors=[CA,CB,CC];
@@ -754,7 +713,6 @@ function buildDashboard(rows){
   });
   document.getElementById('sc-cards').innerHTML=scHtml;
 
-  // Region tables
   const alarmCats=['Power Issue','AC Issue','High Temperature','Fire Alarm','Others'];
   function buildRegionTable(tbodyId,regionRows){
     const tbody=document.getElementById(tbodyId);if(!tbody)return;
@@ -780,8 +738,7 @@ function buildDashboard(rows){
   buildRegionTable('tbody-dxb-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
   buildRegionTable('tbody-auh-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
 
-  // ── TT Log: filter state ────────────────────────────────────────────────
-  // Populate region dropdown dynamically
+  
   const uniqueRegionsForFilter=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))].sort();
   const regSel=document.getElementById('tt-region-filter');
   if(regSel){
@@ -792,7 +749,6 @@ function buildDashboard(rows){
     });
   }
 
-  // Build all TT rows and store on window for filtering
   const statusOptions=['On going','Pending','Escalated','Resolved','Closed'];
   const siteStatusOptions=['On air','Off air'];
   window._ttAllRows=rows.map(function(r,idx){return{r:r,idx:idx};});
@@ -802,7 +758,6 @@ function buildDashboard(rows){
 
   applyTTFilters();
 
-  // Charts
   const incData=classes.map(cls=>alarmCats.map(a=>rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()&&mapAlarm(r['Alarm Category'])===a).length));
   makeChart('c_incidents',{type:'bar',data:{labels:alarmCats,datasets:classes.map((cls,i)=>({label:cls,data:incData[i],backgroundColor:[CA,CB,CC][i]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
 
@@ -815,7 +770,7 @@ function buildDashboard(rows){
   document.getElementById('loading').style.display='none';
   document.getElementById('app').style.display='block';
   fetchLog();
-  // Show username prompt if not set
+  
   const storedName=localStorage.getItem('dg_username');
   if(!storedName){
     document.getElementById('username-modal').style.display='flex';
@@ -860,7 +815,7 @@ function buildTTRow(r, idx){
 }
 
 function updateAlertBanners(openRows, down, allRows){
-  // Banner 1: Sites Off Air (red) — highest priority
+  
   var offAir=down.filter(function(r){
     return (r['Current site status']||'').toLowerCase().includes('off');
   });
@@ -874,7 +829,6 @@ function updateAlertBanners(openRows, down, allRows){
     offAirEl.style.display='none';
   }
 
-  // Banner 2: Sites Down Yes (amber) — sites marked down but may be on air
   var siteDown=(openRows||allRows).filter(function(r){
     return (r['Site Down Yes/ No']||'').toUpperCase()==='YES';
   });
@@ -888,7 +842,6 @@ function updateAlertBanners(openRows, down, allRows){
     downEl.style.display='none';
   }
 
-  // Banner 3: Open TTs count (blue) — informational
   var openCount=(openRows||[]).length;
   var openEl=document.getElementById('alert-opentt');
   var openTxt=document.getElementById('alert-opentt-text');
@@ -920,7 +873,6 @@ function applyTTFilters(){
   const search=(document.getElementById('tt-search')?.value||'').toLowerCase().trim();
   const region=(document.getElementById('tt-region-filter')?.value||'').toUpperCase();
 
-  // Filter
   var filtered=window._ttAllRows.filter(function(item){
     const r=item.r;
     const status=(r['TT Status']||'').toUpperCase();
@@ -936,7 +888,6 @@ function applyTTFilters(){
     return true;
   });
 
-  // Pagination
   const pageSize=window._ttPageSize||20;
   const totalPages=Math.max(1,Math.ceil(filtered.length/pageSize));
   if(window._ttPage>totalPages) window._ttPage=1;
@@ -944,7 +895,6 @@ function applyTTFilters(){
   const start=(page-1)*pageSize;
   const pageRows=filtered.slice(start, start+pageSize);
 
-  // Render rows
   const tbody=document.getElementById('tt-tbody');
   if(tbody){
     if(pageRows.length===0){
@@ -954,14 +904,12 @@ function applyTTFilters(){
     }
   }
 
-  // Update count label
   const label=document.getElementById('tt-count-label');
   if(label) label.textContent='— showing '+filtered.length+' of '+(window._ttAllRows.length)+' tickets';
 
   const fcLabel=document.getElementById('tt-filter-count');
   if(fcLabel) fcLabel.textContent=filtered.length+' result'+(filtered.length!==1?'s':'');
 
-  // Render pagination
   renderPagination(page, totalPages, filtered.length, pageSize);
 }
 
@@ -974,7 +922,7 @@ function renderPagination(page, totalPages, total, pageSize){
   const end=Math.min(page*pageSize, total);
 
   var pages='';
-  // Always show first, last, and up to 2 around current
+  
   var toShow=new Set([1, totalPages, page, page-1, page+1].filter(function(p){return p>=1&&p<=totalPages;}));
   var sorted=[...toShow].sort(function(a,b){return a-b;});
   var prev=-1;
@@ -1009,7 +957,7 @@ function setUsername(){
 
 function onStatusChange(idx){
   markDirty(idx);
-  // Visually dim row if Closed is selected
+  
   const sel=document.getElementById('sel-status-'+idx);
   const tr=sel.closest('tr');
   if(tr) tr.style.opacity=sel.value==='Closed'?'0.55':'1';
@@ -1025,7 +973,7 @@ function updateKPIs(){
   document.getElementById('kpi-closed').textContent=n(closedRows.length);
   document.getElementById('b-down').textContent=n(down.length);
   document.getElementById('b-onair').textContent=n(openRows.length-down.length);
-  // Update alert banner
+  
   updateAlertBanners(openRows, down, allRows);
 }
 
@@ -1042,7 +990,7 @@ function refreshData(){
 }
 
 function downloadExcel(){
-  // Build CSV from current allRows data and trigger download as .xlsx-named file
+  
   if(!allRows||allRows.length===0){showToast('No data to download','error');return;}
   var headers=Object.keys(allRows[0]);
   var csv=[headers.join(',')];
@@ -1067,7 +1015,6 @@ function downloadExcel(){
 
 function loadData(){
   document.getElementById('loading-msg').textContent='Loading data from Google Sheets...';
-  // Try Apps Script getData first (JSONP), fall back to CSV fetch, then demo
   gasCall({action:'getData'}, 20000)
     .then(function(data){
       if(data && data.result==='ok' && data.rows && data.rows.length>0){
@@ -1099,7 +1046,6 @@ function loadCSV(){
     });
 }
 
-// Simple CSV parser — no dependency needed
 function csvToObjects(csv){
   var lines = csv.split(/\r?\n/).filter(function(l){ return l.trim()!==''; });
   if(lines.length<2) return [];
@@ -1128,8 +1074,6 @@ function showScriptError(msg){
   document.getElementById('script-error').style.display='flex';
   document.getElementById('script-error-msg').textContent=msg;
 }
-
-
 
 function loadDemo(){
   buildDashboard([
