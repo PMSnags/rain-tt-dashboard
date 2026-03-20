@@ -559,7 +559,9 @@ function fetchLog(){
         </tr>`;
       }).join('');
     })
-    .catch(()=>{lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Could not load log.</td></tr>';});
+    .catch(()=>{
+      lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Log unavailable — saves still work.</td></tr>';
+    });
 }
 function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
@@ -830,37 +832,15 @@ function markDirty(idx){
 function refreshData(){
   document.getElementById('loading').style.display='flex';
   document.getElementById('app').style.display='none';
-  document.getElementById('loading-msg').textContent='Fetching live data from Google Sheets...';
+  document.getElementById('loading-msg').textContent='Refreshing data from Google Sheets...';
   loadData();
 }
 
 function loadData(){
-  if(!APPS_SCRIPT_URL){ loadDemo(); return; }
-  document.getElementById('loading-msg').textContent='Connecting to Google Sheets...';
-  // First ping to check if script is alive
-  gasCall({action:'ping'})
-    .then(pong=>{
-      if(pong && pong.pong){
-        document.getElementById('loading-msg').textContent='Loading TT data...';
-        return gasCall({action:'getData'});
-      } else {
-        throw new Error('ping failed: '+ JSON.stringify(pong));
-      }
-    })
-    .then(data=>{
-      if(data && data.result==='ok' && data.rows){
-        buildDashboard(data.rows);
-      } else if(data && data.result==='error'){
-        showScriptError('Apps Script error: '+data.msg);
-      } else {
-        loadCSV();
-      }
-    })
-    .catch(err=>{
-      console.error('Apps Script failed:', err);
-      showScriptError(err.message||'timeout — falling back to CSV');
-      loadCSV();
-    });
+  // Load data always from published CSV (reliable, no CORS issues)
+  // Apps Script is only used for saves/updates
+  document.getElementById('loading-msg').textContent='Loading data from Google Sheets...';
+  loadCSV();
 }
 
 function showScriptError(msg){
@@ -872,11 +852,25 @@ function showScriptError(msg){
 
 function loadCSV(){
   if(!SHEET_CSV_URL){ loadDemo(); return; }
-  document.getElementById('loading-msg').textContent='Loading from CSV (may be cached)...';
-  Papa.parse(SHEET_CSV_URL+'&t='+Date.now(),{
-    download:true, header:true, skipEmptyLines:true,
-    complete:results=>buildDashboard(results.data),
-    error:()=>loadDemo()
+  // Add cache-bust timestamp to always get fresh data
+  const url = SHEET_CSV_URL.split('?')[0]+'?'+SHEET_CSV_URL.split('?')[1]+'&t='+Date.now();
+  Papa.parse(url,{
+    download:true,
+    header:true,
+    skipEmptyLines:true,
+    complete:function(results){
+      if(results.data && results.data.length>0){
+        buildDashboard(results.data);
+      } else {
+        document.getElementById('loading-msg').textContent='Sheet appears empty — check published CSV URL';
+        loadDemo();
+      }
+    },
+    error:function(err){
+      console.error('CSV load error:',err);
+      document.getElementById('loading-msg').textContent='Could not load CSV. Check sheet is published.';
+      setTimeout(loadDemo, 2000);
+    }
   });
 }
 
