@@ -202,7 +202,7 @@
   
   const SPREADSHEET_ID = '1TUUSlkznifmAyggs8Ngghkj_DYuNxO63leEeQLCMoHI';
 
-  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwtbSZ0JuZF_vi21ftdfQmjm1Qmo0hGTfgMeoescvrbSEFC5lSjrk5FxxL-Y96hcOX9BA-Y96hcOX9BA/exec';
+  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwtbSZ0JuZF_vi21ftdfQmjm1Qmo0hGTfgMeoescvrbSEFC5lSjrk5FxxL-Y96hcOX9BA/exec';
   
 </script>
 
@@ -1028,32 +1028,17 @@ function loadData(){
 
 function loadCSV(){
   document.getElementById('loading-msg').textContent='Loading via CSV...';
-  var csvUrl = SHEET_CSV_URL + '&nocache=' + Date.now();
-  fetch(csvUrl)
-    .then(function(r){
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return r.text();
-    })
+  fetch(SHEET_CSV_URL+'&nocache='+Date.now())
+    .then(function(r){ return r.text(); })
     .then(function(text){
       var rows = csvToObjects(text);
       if(rows.length>0){ buildDashboard(rows); }
       else { throw new Error('Empty CSV'); }
     })
     .catch(function(err){
-      console.warn('Direct CSV fetch failed:', err.message);
-      document.getElementById('loading-msg').textContent='Retrying via proxy...';
-      fetch('https://corsproxy.io/?'+encodeURIComponent(csvUrl))
-        .then(function(r){ return r.text(); })
-        .then(function(text){
-          var rows = csvToObjects(text);
-          if(rows.length>0){ buildDashboard(rows); }
-          else { throw new Error('Empty via proxy'); }
-        })
-        .catch(function(err2){
-          console.warn('Proxy CSV fetch also failed:', err2.message);
-          document.getElementById('loading-msg').textContent='Could not load data. Showing demo.';
-          setTimeout(loadDemo, 1500);
-        });
+      console.warn('CSV fetch failed:', err.message);
+      document.getElementById('loading-msg').textContent='Could not load data. Showing demo.';
+      setTimeout(loadDemo, 1500);
     });
 }
 
