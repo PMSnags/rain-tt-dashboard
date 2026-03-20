@@ -542,7 +542,7 @@ function fetchLog(){
       if(lc)lc.textContent=data.log.length+' entries';
       if(data.log.length===0){lb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No updates yet.</td></tr>';return;}
       lb.innerHTML=data.log.slice(0,100).map(r=>{
-        const ts=r.Timestamp?new Date(r.Timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+        var ts=r.Timestamp?new Date(r.Timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
         const sc=r['Old Status']!==r['New Status'];
         const rc=String(r['Old Remarks']||'').trim()!==String(r['New Remarks']||'').trim();
         const ch=[];
@@ -585,8 +585,6 @@ function buildDashboard(rows){
   document.getElementById('footer-date').textContent=today;
   const addBtn=document.getElementById('add-ticket-btn');
   if(addBtn) addBtn.href='https://docs.google.com/spreadsheets/d/'+SPREADSHEET_ID+'/edit#gid=0';
-  // Set Add New Ticket link to open Google Sheet directly
-  const addBtn=document.getElementById('add-ticket-btn');
   document.getElementById('b-down').textContent=n(down.length);
   document.getElementById('b-onair').textContent=n(openRows.length-down.length);
 
@@ -649,7 +647,7 @@ function buildDashboard(rows){
         totals[a]=(totals[a]||0)+cnt;rowTotal+=cnt;
         return`<td>${cnt||'—'}</td>`;
       });
-      const pillCls=cls.includes('A')?'pill-A':cls.includes('B')?'pill-B':'pill-C';
+      var pillCls=cls.includes('A')?'pill-A':cls.includes('B')?'pill-B':'pill-C';
       html+=`<tr><td><span class="pill ${pillCls}">${cls}</span></td>${cells.join('')}<td style="font-family:'DM Mono',monospace;color:${rowTotal>0?RED:'var(--muted)'}"><b>${n(rowTotal)}</b></td></tr>`;
     });
     const totRow=alarmCats.map(a=>`<td>${totals[a]||'—'}</td>`).join('');
@@ -719,48 +717,38 @@ function buildDashboard(rows){
   }
 }
 
-// Save both status + remarks in one click
-// ── Fetch update log from Apps Script ────────────────────────────────────
 function fetchLog(){
   if(!APPS_SCRIPT_URL)return;
-  const logBody=document.getElementById('log-body');
-  const logCount=document.getElementById('log-count');
+  var logBody=document.getElementById('log-body');
+  var logCount=document.getElementById('log-count');
   if(!logBody)return;
-  // We use a script tag trick to work around CORS on GET
-  const callbackName='dgLogCb_'+Date.now();
-  const url=APPS_SCRIPT_URL+'?action=getLog&callback='+callbackName;
-  window[callbackName]=function(data){
-    if(data&&data.log){
-      logCount.textContent=data.log.length+' entries';
+  gasCall({action:'getLog'},15000)
+    .then(function(data){
+      if(!data||!data.log)return;
+      if(logCount)logCount.textContent=data.log.length+' entries';
       if(data.log.length===0){
-        logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No updates logged yet — make your first save above.</td></tr>';
+        logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No updates logged yet.</td></tr>';
         return;
       }
       logBody.innerHTML=data.log.slice(0,50).map(function(r){
-        const ts=r['Timestamp']?new Date(r['Timestamp']).toLocaleString('en-GB'):'—';
-        const changed=[];
-        if(r['Old Status']!==r['New Status'])changed.push('Status: <span style="color:var(--red)">'+r['Old Status']+'</span> → <span style="color:var(--green)">'+r['New Status']+'</span>');
+        var logTs=r['Timestamp']?new Date(r['Timestamp']).toLocaleString('en-GB'):'—';
+        var changed=[];
+        if(r['Old TT Status']!==r['New TT Status'])changed.push('Status: <span style="color:var(--red)">'+r['Old TT Status']+'</span> → <span style="color:var(--green)">'+r['New TT Status']+'</span>');
+        if(r['Old Site Status']!==r['New Site Status'])changed.push('Site: <span style="color:var(--amber)">'+r['New Site Status']+'</span>');
         if(String(r['Old Remarks']||'').trim()!==String(r['New Remarks']||'').trim())changed.push('Remarks updated');
-        return'<tr><td style="white-space:nowrap;font-size:11px;color:var(--muted)">'+ts+'</td>'
+        return'<tr>'
+          +'<td style="white-space:nowrap;font-size:11px;color:var(--muted)">'+logTs+'</td>'
           +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+r['TT Number']+'</td>'
           +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+r['Site ID']+'</td>'
           +'<td style="font-size:12px;font-weight:500;color:#7dd3fc">'+r['Updated By']+'</td>'
-          +'<td style="font-size:11px">'+changed.join(' &nbsp;|&nbsp; ')+'</td>'
+          +'<td style="font-size:11px">'+changed.join(' | ')+'</td>'
           +'<td style="font-size:11px;color:var(--muted);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r['New Remarks']+'</td>'
           +'</tr>';
       }).join('');
-    }
-    delete window[callbackName];
-  };
-  // JSONP-style load
-  const s=document.createElement('script');
-  s.src=url;
-  s.onerror=function(){
-    logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Log requires Apps Script — make sure it is deployed.</td></tr>';
-    delete window[callbackName];
-  };
-  document.head.appendChild(s);
-  setTimeout(()=>{if(window[callbackName]){delete window[callbackName];}},5000);
+    })
+    .catch(function(){
+      logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1rem;">Log unavailable — saves still work.</td></tr>';
+    });
 }
 
 function setUsername(){
@@ -780,9 +768,9 @@ function onStatusChange(idx){
 }
 
 function updateKPIs(){
-  const closedRows=allRows.filter(r=>(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  const openRows=allRows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  const down=openRows.filter(r=>(r['Current site status']||'').toLowerCase().includes('off'));
+  var closedRows=allRows.filter(r=>(r['TT Status']||'').toUpperCase().includes('CLOSED'));
+  var openRows=allRows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED'));
+  var down=openRows.filter(r=>(r['Current site status']||'').toLowerCase().includes('off'));
   document.getElementById('kpi-total').textContent=n(allRows.length);
   document.getElementById('kpi-open').textContent=n(openRows.length);
   document.getElementById('kpi-down').textContent=n(down.length);
@@ -800,15 +788,15 @@ function updateKPIs(){
 
 function onStatusChange(idx){
   markDirty(idx);
-  const sel=document.getElementById('sel-status-'+idx);
-  const tr=sel.closest('tr');
+  var sel=document.getElementById('sel-status-'+idx);
+  var tr=sel.closest('tr');
   if(tr) tr.style.opacity=sel.value==='Closed'?'0.55':'1';
 }
 
 function updateKPIs(){
-  const closedRows=allRows.filter(r=>(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  const openRows=allRows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  const down=openRows.filter(r=>(r['Current site status']||'').toLowerCase().includes('off'));
+  var closedRows=allRows.filter(r=>(r['TT Status']||'').toUpperCase().includes('CLOSED'));
+  var openRows=allRows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED'));
+  var down=openRows.filter(r=>(r['Current site status']||'').toLowerCase().includes('off'));
   document.getElementById('kpi-total').textContent=n(allRows.length);
   document.getElementById('kpi-open').textContent=n(openRows.length);
   document.getElementById('kpi-down').textContent=n(down.length);
