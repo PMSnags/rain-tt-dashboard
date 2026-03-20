@@ -214,7 +214,7 @@
   // Find it in your sheet URL: docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
   const SPREADSHEET_ID = '1TUUSlkznifmAyggs8Ngghkj_DYuNxO63leEeQLCMoHI';
 
-  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwKJgUMrPtRa0vbEWztqZdxEn4sEzozgUCRz3GMwX9NenKSH9h5oSAKOnDLQKPjXFKD-A/exec';
+  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwtbSZ0JuZF_vi21ftdfQmjm1Qmo0hGTfgMeoescvrbSEFC5lSjrk5FxxL-Y96hcOX9BA/exec';
   // ─────────────────────────────────────────────────────────────────────────
 </script>
 
@@ -730,7 +730,7 @@ function fetchLog(){
         logBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No updates logged yet.</td></tr>';
         return;
       }
-      logBody.innerHTML=data.log.slice(0,50).map(function(r){
+      logBody.innerHTML=data.log.slice(0,10).map(function(r){
         var logTs=r['Timestamp']?new Date(r['Timestamp']).toLocaleString('en-GB'):'—';
         var changed=[];
         if(r['Old TT Status']!==r['New TT Status'])changed.push('Status: <span style="color:var(--red)">'+r['Old TT Status']+'</span> → <span style="color:var(--green)">'+r['New TT Status']+'</span>');
