@@ -1010,7 +1010,7 @@ function downloadExcel(){
 }
 
 function loadData(){
-  document.getElementById('loading-msg').textContent='Loading data from Google Sheets...';
+  var lm=document.getElementById('loading-msg'); if(lm) lm.textContent='Loading data from Google Sheets...';
   gasCall({action:'getData'}, 20000)
     .then(function(data){
       if(data && data.result==='ok' && data.rows && data.rows.length>0){
@@ -1027,7 +1027,7 @@ function loadData(){
 }
 
 function loadCSV(){
-  document.getElementById('loading-msg').textContent='Loading via CSV...';
+  var lm2=document.getElementById('loading-msg'); if(lm2) lm2.textContent='Loading via CSV...';
   fetch(SHEET_CSV_URL+'&nocache='+Date.now())
     .then(function(r){ return r.text(); })
     .then(function(text){
@@ -1037,7 +1037,7 @@ function loadCSV(){
     })
     .catch(function(err){
       console.warn('CSV fetch failed:', err.message);
-      document.getElementById('loading-msg').textContent='Could not load data. Showing demo.';
+      var lm3=document.getElementById('loading-msg'); if(lm3) lm3.textContent='Could not load data. Showing demo.';
       setTimeout(loadDemo, 1500);
     });
 }
@@ -1079,8 +1079,7 @@ function loadDemo(){
   ]);
 }
 
-loadData();
-</script>
+document.addEventListener("DOMContentLoaded", function(){ loadData(); });
 </script>
 </body>
 </html>
