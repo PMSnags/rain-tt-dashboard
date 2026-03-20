@@ -29,7 +29,6 @@
   ============================================================
 -->
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   :root {
@@ -239,7 +238,7 @@
   </div>
   <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
     <button onclick="location.reload()" style="padding:8px 20px;border-radius:100px;background:rgba(79,156,249,0.15);color:#7dd3fc;border:1px solid rgba(79,156,249,0.3);font-size:13px;cursor:pointer;">↺ Retry</button>
-    <button onclick="loadCSV()" style="padding:8px 20px;border-radius:100px;background:rgba(245,158,11,0.12);color:#fcd34d;border:1px solid rgba(245,158,11,0.25);font-size:13px;cursor:pointer;">Load from CSV instead</button>
+    <button onclick="document.getElementById('script-error').style.display='none';document.getElementById('loading').style.display='flex';loadCSV();" style="padding:8px 20px;border-radius:100px;background:rgba(245,158,11,0.12);color:#fcd34d;border:1px solid rgba(245,158,11,0.25);font-size:13px;cursor:pointer;">Load from CSV instead</button>
     <button onclick="window.open('https://script.google.com','_blank')" style="padding:8px 20px;border-radius:100px;background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2);font-size:13px;cursor:pointer;">Open Apps Script ↗</button>
   </div>
 </div>
@@ -837,10 +836,60 @@ function refreshData(){
 }
 
 function loadData(){
-  // Load data always from published CSV (reliable, no CORS issues)
-  // Apps Script is only used for saves/updates
   document.getElementById('loading-msg').textContent='Loading data from Google Sheets...';
-  loadCSV();
+  // Try Apps Script getData first (JSONP), fall back to CSV fetch, then demo
+  gasCall({action:'getData'}, 20000)
+    .then(function(data){
+      if(data && data.result==='ok' && data.rows && data.rows.length>0){
+        buildDashboard(data.rows);
+      } else {
+        console.warn('Apps Script returned no rows, trying CSV');
+        loadCSV();
+      }
+    })
+    .catch(function(err){
+      console.warn('Apps Script getData failed, trying CSV:', err.message);
+      loadCSV();
+    });
+}
+
+function loadCSV(){
+  document.getElementById('loading-msg').textContent='Loading via CSV...';
+  fetch(SHEET_CSV_URL+'&nocache='+Date.now())
+    .then(function(r){ return r.text(); })
+    .then(function(text){
+      var rows = csvToObjects(text);
+      if(rows.length>0){ buildDashboard(rows); }
+      else { throw new Error('Empty CSV'); }
+    })
+    .catch(function(err){
+      console.warn('CSV fetch failed:', err.message);
+      document.getElementById('loading-msg').textContent='Could not load data. Showing demo.';
+      setTimeout(loadDemo, 1500);
+    });
+}
+
+// Simple CSV parser — no dependency needed
+function csvToObjects(csv){
+  var lines = csv.split(/\r?\n/).filter(function(l){ return l.trim()!==''; });
+  if(lines.length<2) return [];
+  function parseRow(line){
+    var result=[], cur='', inQ=false;
+    for(var i=0;i<line.length;i++){
+      var c=line[i];
+      if(c==='"'){ inQ=!inQ; }
+      else if(c===','&&!inQ){ result.push(cur); cur=''; }
+      else { cur+=c; }
+    }
+    result.push(cur);
+    return result;
+  }
+  var headers=parseRow(lines[0]);
+  return lines.slice(1).map(function(line){
+    var vals=parseRow(line), obj={};
+    headers.forEach(function(h,i){ obj[h.trim()]=( vals[i]||'').trim(); });
+    return obj;
+  }).filter(function(r){ return Object.values(r).some(function(v){ return v!==''; }); });
 }
 
 function showScriptError(msg){
@@ -850,29 +899,7 @@ function showScriptError(msg){
   document.getElementById('script-error-msg').textContent=msg;
 }
 
-function loadCSV(){
-  if(!SHEET_CSV_URL){ loadDemo(); return; }
-  // Add cache-bust timestamp to always get fresh data
-  const url = SHEET_CSV_URL.split('?')[0]+'?'+SHEET_CSV_URL.split('?')[1]+'&t='+Date.now();
-  Papa.parse(url,{
-    download:true,
-    header:true,
-    skipEmptyLines:true,
-    complete:function(results){
-      if(results.data && results.data.length>0){
-        buildDashboard(results.data);
-      } else {
-        document.getElementById('loading-msg').textContent='Sheet appears empty — check published CSV URL';
-        loadDemo();
-      }
-    },
-    error:function(err){
-      console.error('CSV load error:',err);
-      document.getElementById('loading-msg').textContent='Could not load CSV. Check sheet is published.';
-      setTimeout(loadDemo, 2000);
-    }
-  });
-}
+
 
 function loadDemo(){
   buildDashboard([
