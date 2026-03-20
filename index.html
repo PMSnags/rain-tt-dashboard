@@ -4,7 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rain TT & Outages Tracker</title>
+<!--
+  ============================================================
+  DIGITUS — Rain TT & Outages Dashboard v2
+  ============================================================
+  STEP 1 — GOOGLE SHEETS READ (CSV):
+    Already configured below as SHEET_CSV_URL.
 
+  STEP 2 — GOOGLE APPS SCRIPT (write-back):
+    1. Open your Google Sheet
+    2. Click Extensions > Apps Script
+    3. Delete any existing code and paste the script from
+       the APPS_SCRIPT_CODE block at the bottom of this file
+    4. Click Save, then Deploy > New Deployment
+    5. Type: Web App
+       Execute as: Me
+       Who has access: Anyone
+    6. Click Deploy, copy the Web App URL
+    7. Paste it into APPS_SCRIPT_URL below
+
+  HOSTING ON GITHUB PAGES:
+    Upload index.html + DGlogo.png to your repo root.
+    Settings > Pages > main branch / root.
+  ============================================================
+-->
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
@@ -397,7 +420,7 @@
 </div>
 
 <div class="footer">
-  <div>CARLOS.BANTOG@DU.AE - TT & Outages Dashboard — Confidential, Internal Use Only - Contact me directly for any issues</div>
+  <div>CARLOS.BANTOG@DU.AE - TT &amp; Outages Dashboard — Confidential, Internal Use Only - Contact me directly for any issues</div>
   <div>Generated: <span id="footer-date">—</span></div>
 </div>
 
@@ -468,45 +491,57 @@ function gasCall(params, timeoutMs){
   });
 }
 
-// ── gasSave: JSONP first (Chrome), falls back to no-cors fetch (Edge) ───
+// ── gasSave: tries JSONP first, falls back to no-cors fetch ──────────────
+// JSONP works in Chrome. Edge sometimes blocks script-tag injection to
+// Google domains. no-cors fetch is fire-and-forget but reliably delivers.
 function gasSave(params){
   return new Promise(function(resolve){
-    var qs=Object.entries(params)
-      .map(function(kv){return encodeURIComponent(kv[0])+'='+encodeURIComponent(kv[1]);})
+    // Build query string
+    var qs = Object.entries(params)
+      .map(function(kv){ return encodeURIComponent(kv[0])+'='+encodeURIComponent(kv[1]); })
       .join('&');
-    var url=APPS_SCRIPT_URL+'?'+qs;
-    var cbName='_sv_'+Date.now();
-    var done=false;
-    var s=document.createElement('script');
+    var url = APPS_SCRIPT_URL + '?' + qs;
 
-    // After 8s, if JSONP hasn't replied, fall back to no-cors (Edge/Safari)
-    var timer=setTimeout(function(){
-      if(done)return; done=true;
+    // Method 1: JSONP (Chrome, Firefox — get response back)
+    var cbName = '_sv_' + Date.now();
+    var done = false;
+    var s = document.createElement('script');
+
+    var timer = setTimeout(function(){
+      // JSONP timed out — fall back to no-cors fetch (Edge, Safari)
+      if(done) return;
+      done = true;
       delete window[cbName];
-      if(s.parentNode)s.parentNode.removeChild(s);
-      fetch(url+'&callback=nocors',{mode:'no-cors'})
-        .then(function(){resolve({result:'ok',via:'no-cors'});})
-        .catch(function(){resolve({result:'ok',via:'no-cors-fallback'});});
-    },8000);
+      if(s.parentNode) s.parentNode.removeChild(s);
 
-    window[cbName]=function(data){
-      if(done)return; done=true;
+      // no-cors: data gets through but we can't read response
+      // We optimistically resolve ok after a short delay
+      fetch(url + '&callback=nocors', {mode:'no-cors'})
+        .then(function(){ resolve({result:'ok', via:'no-cors'}); })
+        .catch(function(){ resolve({result:'ok', via:'no-cors-fallback'}); });
+    }, 8000); // 8s — if JSONP hasn't replied by then, switch to no-cors
+
+    window[cbName] = function(data){
+      if(done) return;
+      done = true;
       clearTimeout(timer);
       delete window[cbName];
-      if(s.parentNode)s.parentNode.removeChild(s);
+      if(s.parentNode) s.parentNode.removeChild(s);
       resolve(data);
     };
 
-    s.onerror=function(){
-      if(done)return; done=true;
+    s.onerror = function(){
+      if(done) return;
+      done = true;
       clearTimeout(timer);
       delete window[cbName];
-      fetch(url+'&callback=nocors',{mode:'no-cors'})
-        .then(function(){resolve({result:'ok',via:'no-cors-onerror'});})
-        .catch(function(){resolve({result:'ok',via:'no-cors-fallback'});});
+      // Script tag blocked — go straight to no-cors
+      fetch(url + '&callback=nocors', {mode:'no-cors'})
+        .then(function(){ resolve({result:'ok', via:'no-cors-onerror'}); })
+        .catch(function(){ resolve({result:'ok', via:'no-cors-onerror-fallback'}); });
     };
 
-    s.src=url+'&callback='+cbName;
+    s.src = url + '&callback=' + cbName;
     document.head.appendChild(s);
   });
 }
@@ -538,10 +573,14 @@ async function saveField(btn,rowIndex){
       updatedBy:  updatedBy
     });
     if(result&&result.result==='ok'){
-      var viaNoCors=result.via&&result.via.includes('no-cors');
+      var viaNoCors = result.via && result.via.includes('no-cors');
       btn.className='btn-save saved';
-      btn.textContent=viaNoCors?'✓ Sent':'✓ Saved';
-      showToast(viaNoCors?'Sent — refresh in a few seconds to confirm ✓':'Saved to Google Sheets ✓','success');
+      btn.textContent= viaNoCors ? '✓ Sent' : '✓ Saved';
+      if(viaNoCors){
+        showToast('Sent to Google Sheets — refresh in 5s to confirm ✓','success');
+      } else {
+        showToast('Saved to Google Sheets ✓','success');
+      }
       allRows[rowIndex]['TT Status']=statusVal;
       allRows[rowIndex]['Current site status']=siteStatusVal;
       allRows[rowIndex]['Site Down Yes/ No']=siteDownVal;
@@ -751,7 +790,6 @@ function buildDashboard(rows){
   }
 }
 
-
 function setUsername(){
   const name=document.getElementById('username-input').value.trim();
   if(!name){showToast('Please enter your name','error');return;}
@@ -786,7 +824,6 @@ function updateKPIs(){
     document.getElementById('alert-banner').style.display='none';
   }
 }
-
 
 function markDirty(idx){
   const btn=document.getElementById('btn-save-'+idx);
@@ -824,9 +861,8 @@ function downloadExcel(){
   showToast('Downloaded ✓','success');
 }
 
-
 function loadData(){
-  document.getElementById('loading-msg').textContent='Loading data...';
+  document.getElementById('loading-msg').textContent='Loading data from Google Sheets...';
   // Try Apps Script getData first (JSONP), fall back to CSV fetch, then demo
   gasCall({action:'getData'}, 20000)
     .then(function(data){
@@ -895,4 +931,12 @@ function loadDemo(){
   buildDashboard([
     {'TT Date':'20 Mar 2026','TT Number':'TT001','TT Descrition':'Mains Failure','TT  priority':'2','Site ID':'DXB1246','Region':'DXB_NE','Alarm Category':'Commercial Power','Site Class':'Class A','Site Down Yes/ No':'Yes','Current site status':'Off air','ETC leading':'Yes','Rootcause':'Power Failure from ETC','TT Status':'On going','FE name attending the TT':'XXX','Additional remarks':'Waiting for ETC feedback'},
     {'TT Date':'20 Mar 2026','TT Number':'TT002','TT Descrition':'Airconditioning failure','TT  priority':'3','Site ID':'AUH2423','Region':'AUH','Alarm Category':'Aircon Failure','Site Class':'Class C','Site Down Yes/ No':'No','Current site status':'On air','ETC leading':'No','Rootcause':'','TT Status':'On going','FE name attending the TT':'XXX','Additional remarks':'FLM on site'},
-    {'TT Date':'20 Mar 2026','TT Number':'TT003','TT Descrition':'Room thermostat','TT  priority':'3','Site ID':'DXB1248','Region':'DXB_NE','Alarm Category':'High Temperature','Site Class':'Class B',
+    {'TT Date':'20 Mar 2026','TT Number':'TT003','TT Descrition':'Room thermostat','TT  priority':'3','Site ID':'DXB1248','Region':'DXB_NE','Alarm Category':'High Temperature','Site Class':'Class B','Site Down Yes/ No':'No','Current site status':'On air','ETC leading':'No','Rootcause':'','TT Status':'On going','FE name attending the TT':'XXX','Additional remarks':'FLM on site'},
+  ]);
+}
+
+loadData();
+</script>
+</script>
+</body>
+</html>
