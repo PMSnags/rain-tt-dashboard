@@ -6,7 +6,25 @@
 <title>Rain TT & Outages Tracker</title>
 
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js">
+// === Banner simplification (count only + hover details) ===
+function simplifyBanners(){
+  const banners = [
+    {id:'alert-offair-text'},
+    {id:'alert-sitedown-text'},
+    {id:'alert-opentt-text'}
+  ];
+  banners.forEach(b=>{
+    const el=document.getElementById(b.id);
+    if(!el || !el.dataset.full) return;
+    const full=el.dataset.full;
+    const count = full.split(',').filter(x=>x.trim()).length;
+    el.textContent = count + ' site(s)';
+    el.title = full;
+  });
+}
+
+</script>
 <style>
   :root {
     --bg:#0f1117;--bg2:#181c27;--bg3:#1e2335;
@@ -234,6 +252,24 @@
 
   let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbzCNjnaDph8F5Bmq007TVrJivDuuHU9IaWUd8D0F7aWxzMdT72aN7yWnUn5ozXgqf4/exec';
   
+
+// === Banner simplification (count only + hover details) ===
+function simplifyBanners(){
+  const banners = [
+    {id:'alert-offair-text'},
+    {id:'alert-sitedown-text'},
+    {id:'alert-opentt-text'}
+  ];
+  banners.forEach(b=>{
+    const el=document.getElementById(b.id);
+    if(!el || !el.dataset.full) return;
+    const full=el.dataset.full;
+    const count = full.split(',').filter(x=>x.trim()).length;
+    el.textContent = count + ' site(s)';
+    el.title = full;
+  });
+}
+
 </script>
 
 <div id="loading">
@@ -803,7 +839,8 @@ function buildEmirateBreakdownMatrix(rows){
     emirates.forEach(function(emirate){
       const count=rows.filter(function(r){
         return getEmirate(r).toUpperCase()===emirate.toUpperCase() &&
-               (r['Alarm Category']||'').trim()===alarm;
+               (r['Alarm Category']||'').trim()===alarm &&
+               !(r['TT Status']||'').toUpperCase().includes('CLOSED') && !(r['TT Status']||'').toUpperCase().includes('RESOLVED');
       }).length;
       counts[emirate]=count;
       total+=count;
@@ -890,7 +927,7 @@ function buildDashboard(rows){
 
   const total=rows.length;
   const closedRows=rows.filter(r=>(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  const openRows=rows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED'));
+  const openRows=rows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED') && !(r['TT Status']||'').toUpperCase().includes('RESOLVED'));
   // Catch all off-air variations: "Off air", "Off Air", "OFF AIR", or Site Down Yes/No = Yes
   const down=openRows.filter(r=>{
     const siteStatus=(r['Current site status']||'').toLowerCase();
@@ -927,7 +964,7 @@ function buildDashboard(rows){
   let scHtml='';
   classes.forEach((cls,i)=>{
     const sub=rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase());
-    const openC=sub.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED')).length;
+    const openC=sub.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED') && !(r['TT Status']||'').toUpperCase().includes('RESOLVED')).length;
     const downC=sub.filter(r=>(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')).length;
     const onairC=sub.length-downC;
     const rgns=[...new Set(sub.map(r=>r['Region']||'').filter(Boolean))].join(', ')||'—';
@@ -1020,7 +1057,7 @@ function buildDashboard(rows){
   // ── Class A Open Tickets Breakdown ───────────────────────────────────────
   var classAOpen=rows.filter(function(r){
     return (r['Site Class']||'').toUpperCase()==='CLASS A' &&
-           !(r['TT Status']||'').toUpperCase().includes('CLOSED');
+           !(r['TT Status']||'').toUpperCase().includes('CLOSED') && !(r['TT Status']||'').toUpperCase().includes('RESOLVED');
   });
 
   // Build region breakdown first so it's available for the title
@@ -1303,7 +1340,7 @@ function onStatusChange(idx){
 
 function updateKPIs(){
   var closedRows=allRows.filter(r=>(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  var openRows=allRows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED'));
+  var openRows=allRows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED') && !(r['TT Status']||'').toUpperCase().includes('RESOLVED'));
   var down=openRows.filter(r=>(r['Current site status']||'').toLowerCase().includes('off'));
   document.getElementById('kpi-total').textContent=n(allRows.length);
   document.getElementById('kpi-open').textContent=n(openRows.length);
@@ -1447,6 +1484,24 @@ function loadDemo(){
 }
 
 document.addEventListener("DOMContentLoaded", function(){ loadData(); });
+
+// === Banner simplification (count only + hover details) ===
+function simplifyBanners(){
+  const banners = [
+    {id:'alert-offair-text'},
+    {id:'alert-sitedown-text'},
+    {id:'alert-opentt-text'}
+  ];
+  banners.forEach(b=>{
+    const el=document.getElementById(b.id);
+    if(!el || !el.dataset.full) return;
+    const full=el.dataset.full;
+    const count = full.split(',').filter(x=>x.trim()).length;
+    el.textContent = count + ' site(s)';
+    el.title = full;
+  });
+}
+
 </script>
 <button id="floating-refresh" onclick="refreshData()">⟳ Refresh</button>
 </body>
