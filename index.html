@@ -316,19 +316,19 @@
   <div class="region-grid">
     <div class="region-card">
       <div class="region-card-title">DXB_NE — Incidents Summary</div>
-      <table class="summary-table"><thead><tr><th>Class</th><th>Power</th><th>AC</th><th>High Temp</th><th>Fire</th><th>Others</th><th>Total</th></tr></thead><tbody id="tbody-dxb-inc"></tbody></table>
+      <table class="summary-table"><thead id="thead-dxb-inc"></thead><tbody id="tbody-dxb-inc"></tbody></table>
     </div>
     <div class="region-card">
       <div class="region-card-title">AUH — Incidents Summary</div>
-      <table class="summary-table"><thead><tr><th>Class</th><th>Power</th><th>AC</th><th>High Temp</th><th>Fire</th><th>Others</th><th>Total</th></tr></thead><tbody id="tbody-auh-inc"></tbody></table>
+      <table class="summary-table"><thead id="thead-auh-inc"></thead><tbody id="tbody-auh-inc"></tbody></table>
     </div>
     <div class="region-card">
       <div class="region-card-title">DXB_NE — Outage Summary (Sites Down)</div>
-      <table class="summary-table"><thead><tr><th>Class</th><th>Power</th><th>AC</th><th>High Temp</th><th>Fire</th><th>Others</th><th>Total</th></tr></thead><tbody id="tbody-dxb-out"></tbody></table>
+      <table class="summary-table"><thead id="thead-dxb-out"></thead><tbody id="tbody-dxb-out"></tbody></table>
     </div>
     <div class="region-card">
       <div class="region-card-title">AUH — Outage Summary (Sites Down)</div>
-      <table class="summary-table"><thead><tr><th>Class</th><th>Power</th><th>AC</th><th>High Temp</th><th>Fire</th><th>Others</th><th>Total</th></tr></thead><tbody id="tbody-auh-out"></tbody></table>
+      <table class="summary-table"><thead id="thead-auh-out"></thead><tbody id="tbody-auh-out"></tbody></table>
     </div>
   </div>
 
@@ -760,30 +760,42 @@ function buildDashboard(rows){
   });
   document.getElementById('sc-cards').innerHTML=scHtml;
 
+  // Build alarm categories dynamically from actual sheet values
   const alarmCats=['Power Issue','AC Issue','High Temperature','Fire Alarm','Others'];
-  function buildRegionTable(tbodyId,regionRows){
+  const dynamicCats=[...new Set(rows.map(r=>(r['Alarm Category']||'').trim()).filter(Boolean))].sort();
+
+  function buildRegionTable(tbodyId, theadId, regionRows){
     const tbody=document.getElementById(tbodyId);if(!tbody)return;
-    let html='';const totals={};alarmCats.forEach(a=>{totals[a]=0;});
+    // Rebuild header with dynamic categories
+    const thead=document.getElementById(theadId);
+    if(thead){
+      thead.innerHTML='<tr><th style="text-align:left">Class</th>'+
+        dynamicCats.map(a=>'<th>'+e(a)+'</th>').join('')+
+        '<th>Total</th></tr>';
+    }
+    let html='';
+    const totals={};
+    dynamicCats.forEach(a=>{totals[a]=0;});
     classes.forEach(cls=>{
       const clsRows=regionRows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase());
       let rowTotal=0;
-      const cells=alarmCats.map(a=>{
-        const cnt=clsRows.filter(r=>mapAlarm(r['Alarm Category'])===a).length;
+      const cells=dynamicCats.map(a=>{
+        const cnt=clsRows.filter(r=>(r['Alarm Category']||'').trim()===a).length;
         totals[a]=(totals[a]||0)+cnt;rowTotal+=cnt;
         return`<td>${cnt||'—'}</td>`;
       });
       var pillCls=cls.includes('A')?'pill-A':cls.includes('B')?'pill-B':'pill-C';
       html+=`<tr><td><span class="pill ${pillCls}">${cls}</span></td>${cells.join('')}<td style="font-family:'DM Mono',monospace;color:${rowTotal>0?RED:'var(--muted)'}"><b>${n(rowTotal)}</b></td></tr>`;
     });
-    const totRow=alarmCats.map(a=>`<td>${totals[a]||'—'}</td>`).join('');
+    const totRow=dynamicCats.map(a=>`<td>${totals[a]||'—'}</td>`).join('');
     const grand=Object.values(totals).reduce((a,b)=>a+b,0);
     html+=`<tr><td style="font-weight:600">Total</td>${totRow}<td style="font-family:'DM Mono',monospace;color:${grand>0?RED:GREEN}"><b>${n(grand)}</b></td></tr>`;
     tbody.innerHTML=html;
   }
-  buildRegionTable('tbody-dxb-inc',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'));
-  buildRegionTable('tbody-auh-inc',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'));
-  buildRegionTable('tbody-dxb-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
-  buildRegionTable('tbody-auh-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
+  buildRegionTable('tbody-dxb-inc','thead-dxb-inc',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'));
+  buildRegionTable('tbody-auh-inc','thead-auh-inc',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'));
+  buildRegionTable('tbody-dxb-out','thead-dxb-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
+  buildRegionTable('tbody-auh-out','thead-auh-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
 
   
   const uniqueRegionsForFilter=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))].sort();
