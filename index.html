@@ -194,6 +194,28 @@
     h1{font-size:1.5rem;}
     .header-logo-wrap{width:180px;height:80px;}
   }
+
+#floating-refresh {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(79,156,249,0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(79,156,249,0.35);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(6px);
+}
+#floating-refresh:hover {
+  background: rgba(79,156,249,0.3);
+  transform: translateY(-2px);
+}
+
 </style>
 </head>
 <body>
@@ -1109,25 +1131,16 @@ function buildTTRow(r, idx){
 }
 
 function updateAlertBanners(openRows, down, allRows){
-  function escAttr(s){
-    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-  function hoverNote(label, details){
-    return ' <span style="text-decoration:underline dotted;cursor:help;color:inherit;opacity:.95" title="'+escAttr(details)+'">('+label+')</span>';
-  }
-
   // Red: use the full down array (already catches off air + Site Down=Yes)
   var offAirEl=document.getElementById('alert-offair');
   var offAirTxt=document.getElementById('alert-offair-text');
   if(down.length>0){
     offAirEl.style.display='flex';
-    var offAirDetails=down.map(function(r){
-      var em=r['Emirate']||r['Region']||'';
-      var emText=em?' ['+em+']':'';
-      return (r['Site ID']||'?')+emText;
-    }).join(', ');
-    offAirTxt.innerHTML='<strong>&#9888; '+down.length+' SITE(S) OFF AIR / DOWN</strong>'+
-      hoverNote('hover for site IDs', offAirDetails)+' — Immediate escalation required.';
+    offAirTxt.innerHTML='<strong>&#9888; '+down.length+' SITE(S) OFF AIR / DOWN:</strong> '+
+      down.map(function(r){
+        var reg=r['Region']?' ['+r['Region']+']':'';
+        return (r['Site ID']||'?')+reg;
+      }).join(', ')+' — Immediate escalation required.';
   } else {
     offAirEl.style.display='none';
   }
@@ -1139,12 +1152,8 @@ function updateAlertBanners(openRows, down, allRows){
   var downTxt=document.getElementById('alert-sitedown-text');
   if(siteDown.length>0){
     downEl.style.display='flex';
-    var uniqueSiteDown=[...new Set(siteDown.map(function(r){
-      var em=r['Emirate']||r['Region']||'';
-      return (r['Site ID']||'?')+(em?' ['+em+']':'');
-    }))];
-    downTxt.innerHTML='<strong>&#9679; '+uniqueSiteDown.length+' SITE(S) MARKED DOWN</strong>'+
-      hoverNote('hover for site IDs', uniqueSiteDown.join(', '))+' — Site Down = Yes on open tickets.';
+    downTxt.innerHTML='<strong>&#9679; '+siteDown.length+' SITE(S) MARKED DOWN:</strong> '+
+      [...new Set(siteDown.map(function(r){return r['Site ID'];}))].join(', ')+' — Site Down = Yes on open tickets.';
   } else {
     downEl.style.display='none';
   }
@@ -1156,7 +1165,7 @@ function updateAlertBanners(openRows, down, allRows){
     openEl.style.display='flex';
     var byRegion={};
     (openRows||[]).forEach(function(r){
-      var reg=r['Emirate']||r['Region']||'Unknown';
+      var reg=r['Region']||'Unknown';
       byRegion[reg]=(byRegion[reg]||0)+1;
     });
     var regionSummary=Object.entries(byRegion).map(function(kv){return kv[0]+': '+kv[1];}).join(' · ');
@@ -1417,5 +1426,6 @@ function loadDemo(){
 
 document.addEventListener("DOMContentLoaded", function(){ loadData(); });
 </script>
+<button id="floating-refresh" onclick="refreshData()">⟳ Refresh</button>
 </body>
 </html>
