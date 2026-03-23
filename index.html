@@ -766,7 +766,9 @@ function buildDashboard(rows){
 
   // Build alarm categories dynamically from actual sheet values
   const alarmCats=['Power Issue','AC Issue','High Temperature','Fire Alarm','Others'];
-  const dynamicCats=[...new Set(rows.map(r=>(r['Alarm Category']||'').trim()).filter(Boolean))].sort();
+  const dynamicCats=rows.length>0
+    ? [...new Set(rows.map(r=>(r['Alarm Category']||'').trim()).filter(Boolean))].sort()
+    : alarmCats;
 
   function buildRegionTable(tbodyId, theadId, regionRows){
     const tbody=document.getElementById(tbodyId);if(!tbody)return;
@@ -836,6 +838,14 @@ function buildDashboard(rows){
            !(r['TT Status']||'').toUpperCase().includes('CLOSED');
   });
 
+  // Build region breakdown first so it's available for the title
+  var caByRegion={};
+  classAOpen.forEach(function(r){
+    var reg=(r['Region']||'Unknown').toUpperCase();
+    caByRegion[reg]=(caByRegion[reg]||0)+1;
+  });
+  var caRegionLabels=Object.keys(caByRegion);
+
   var caCountEl=document.getElementById('classa-open-count');
   if(caCountEl){
     var regionBreakdown=caRegionLabels.map(function(reg){ return reg+': '+caByRegion[reg]; }).join(' · ');
@@ -860,12 +870,6 @@ function buildDashboard(rows){
   },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:scaleOpts()}});
 
   // Chart 2: Class A open by region + site status
-  var caByRegion={};
-  classAOpen.forEach(function(r){
-    var reg=(r['Region']||'Unknown').toUpperCase();
-    caByRegion[reg]=(caByRegion[reg]||0)+1;
-  });
-  var caRegionLabels=Object.keys(caByRegion);
   var caRegionData=caRegionLabels.map(function(reg){ return caByRegion[reg]; });
   var caOnAir=classAOpen.filter(function(r){ return !(r['Current site status']||'').toLowerCase().includes('off'); }).length;
   var caOffAir=classAOpen.filter(function(r){ return (r['Current site status']||'').toLowerCase().includes('off'); }).length;
@@ -1199,36 +1203,25 @@ function loadData(){
 function loadCSV(){
   var lm2=document.getElementById('loading-msg'); if(lm2) lm2.textContent='Loading data from both regions...';
   var ts='&nocache='+Date.now();
-  Promise.all([
-    fetch(SHEET_CSV_URL_AUH+ts).then(function(r){return r.text();}),
-    fetch(SHEET_CSV_URL_DXB+ts).then(function(r){return r.text();})
-  ])
-  .then(function(results){
-    var auhRows=csvToObjects(results[0]);
-    var dxbRows=csvToObjects(results[1]);
-    var allRows=auhRows.concat(dxbRows);
-    if(allRows.length>0){
-      buildDashboard(allRows);
-    } else {
-      throw new Error('Both CSVs empty');
-    }
-  })
-  .catch(function(err){
-    console.warn('CSV fetch failed:', err.message);
-    // Try each individually as fallback
-    var lm2b=document.getElementById('loading-msg'); if(lm2b) lm2b.textContent='Retrying single source...';
-    fetch(SHEET_CSV_URL_AUH+ts)
-      .then(function(r){return r.text();})
-      .then(function(text){
-        var rows=csvToObjects(text);
-        if(rows.length>0){ buildDashboard(rows); }
-        else { throw new Error('Empty'); }
-      })
-      .catch(function(){
+
+  // Fetch each sheet independently — if one fails the other still loads
+  function safeFetch(url){
+    return fetch(url+ts)
+      .then(function(r){ return r.text(); })
+      .then(function(text){ return csvToObjects(text); })
+      .catch(function(err){ console.warn('Fetch failed for '+url+': '+err.message); return []; });
+  }
+
+  Promise.all([safeFetch(SHEET_CSV_URL_AUH), safeFetch(SHEET_CSV_URL_DXB)])
+    .then(function(results){
+      var combined=results[0].concat(results[1]);
+      if(combined.length>0){
+        buildDashboard(combined);
+      } else {
         var lm3=document.getElementById('loading-msg'); if(lm3) lm3.textContent='Could not load data. Showing demo.';
         setTimeout(loadDemo,1500);
-      });
-  });
+      }
+    });
 }
 
 function csvToObjects(csv){
