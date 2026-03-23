@@ -545,41 +545,33 @@ function renderAlarmCategoryChart(rows,dynamicCats){
   const mode=window._alarmChartMode||'emirate';
   const titleEl=document.getElementById('alarm-chart-title');
   if(mode==='class'){
-    if(titleEl) titleEl.innerHTML='Alarm categories by emirate &amp; site class <span>stacked by site class</span>';
-    const emirates=[...new Set(rows.map(getAlarmChartEmirate).filter(Boolean))];
+    if(titleEl) titleEl.innerHTML='Alarm categories by site class <span>grouped by site class</span>';
     const classList=['Class A','Class B','Class C'];
     const classColors={'Class A':CA,'Class B':CB,'Class C':CC};
-    const opacityMap=['ee','bb','88','66','44'];
-    const datasets=[];
-    emirates.forEach(function(em,idx){
-      classList.forEach(function(cls){
-        datasets.push({
-          label: em + ' - ' + cls,
-          data: dynamicCats.map(function(cat){
-            return rows.filter(function(r){
-              return getAlarmChartEmirate(r).toUpperCase()===em.toUpperCase() &&
-                     (r['Site Class']||'').toUpperCase()===cls.toUpperCase() &&
-                     (r['Alarm Category']||'').trim()===cat;
-            }).length;
-          }),
-          backgroundColor: classColors[cls] + opacityMap[idx % opacityMap.length],
-          borderRadius:5,
-          borderWidth:0,
-          stack: em
-        });
-      });
-    });
     makeChart('c_region',{
       type:'bar',
-      data:{labels:dynamicCats,datasets:datasets},
+      data:{
+        labels:dynamicCats,
+        datasets:classList.map(function(cls){
+          return {
+            label: cls,
+            data: dynamicCats.map(function(cat){
+              return rows.filter(function(r){
+                return (r['Site Class']||'').toUpperCase()===cls.toUpperCase() &&
+                       (r['Alarm Category']||'').trim()===cat;
+              }).length;
+            }),
+            backgroundColor: classColors[cls] + 'cc',
+            borderRadius:5,
+            borderWidth:0
+          };
+        })
+      },
       options:{
         responsive:true,
         maintainAspectRatio:false,
         plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},
-        scales:{
-          x:{stacked:true,grid:{color:gridC},ticks:{color:tickC,font:{size:11}}},
-          y:{stacked:true,beginAtZero:true,ticks:{stepSize:1,color:tickC,font:{size:11}},grid:{color:gridC}}
-        }
+        scales:scaleOpts()
       }
     });
   } else {
