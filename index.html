@@ -350,8 +350,14 @@
   </div>
   <div class="charts-row">
     <div class="chart-card full">
-      <div class="chart-title">Alarm categories by emirate <span>all emirates</span></div>
-      <div style="position:relative;height:220px;"><canvas id="c_region"></canvas></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:1.25rem;">
+        <div class="chart-title" id="alarm-chart-title" style="margin-bottom:0;">Alarm categories by emirate <span>grouped by emirate</span></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="tt-filter-btn active" id="view-emirate-btn" onclick="setAlarmChartMode('emirate',this)">Emirate View</button>
+          <button class="tt-filter-btn" id="view-class-btn" onclick="setAlarmChartMode('class',this)">Site Class View</button>
+        </div>
+      </div>
+      <div style="position:relative;height:260px;"><canvas id="c_region"></canvas></div>
     </div>  </div>
 
   <p class="section-title" style="margin-top:2rem;">Alarm Category Breakdown by Emirate</p>
@@ -521,6 +527,66 @@ function scaleOpts(){
 function makeChart(id,config){
   if(chartInstances[id])chartInstances[id].destroy();
   chartInstances[id]=new Chart(document.getElementById(id),config);
+}
+
+window._alarmChartMode='emirate';
+function getAlarmChartEmirate(row){
+  return (row['Emirate']||row['Region']||'').trim();
+}
+function setAlarmChartMode(mode,btn){
+  window._alarmChartMode=mode;
+  document.querySelectorAll('#view-emirate-btn, #view-class-btn').forEach(function(el){el.classList.remove('active');});
+  if(btn) btn.classList.add('active');
+  if(window._alarmChartRows&&window._alarmChartCats){
+    renderAlarmCategoryChart(window._alarmChartRows, window._alarmChartCats);
+  }
+}
+function renderAlarmCategoryChart(rows,dynamicCats){
+  const mode=window._alarmChartMode||'emirate';
+  const titleEl=document.getElementById('alarm-chart-title');
+  if(mode==='class'){
+    if(titleEl) titleEl.innerHTML='Alarm categories by emirate &amp; site class <span>stacked by site class</span>';
+    const emirates=[...new Set(rows.map(getAlarmChartEmirate).filter(Boolean))];
+    const classList=['Class A','Class B','Class C'];
+    const classColors={'Class A':CA,'Class B':CB,'Class C':CC};
+    const opacityMap=['ee','bb','88','66','44'];
+    const datasets=[];
+    emirates.forEach(function(em,idx){
+      classList.forEach(function(cls){
+        datasets.push({
+          label: em + ' - ' + cls,
+          data: dynamicCats.map(function(cat){
+            return rows.filter(function(r){
+              return getAlarmChartEmirate(r).toUpperCase()===em.toUpperCase() &&
+                     (r['Site Class']||'').toUpperCase()===cls.toUpperCase() &&
+                     (r['Alarm Category']||'').trim()===cat;
+            }).length;
+          }),
+          backgroundColor: classColors[cls] + opacityMap[idx % opacityMap.length],
+          borderRadius:5,
+          borderWidth:0,
+          stack: em
+        });
+      });
+    });
+    makeChart('c_region',{
+      type:'bar',
+      data:{labels:dynamicCats,datasets:datasets},
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},
+        scales:{
+          x:{stacked:true,grid:{color:gridC},ticks:{color:tickC,font:{size:11}}},
+          y:{stacked:true,beginAtZero:true,ticks:{stepSize:1,color:tickC,font:{size:11}},grid:{color:gridC}}
+        }
+      }
+    });
+  } else {
+    if(titleEl) titleEl.innerHTML='Alarm categories by emirate <span>grouped by emirate</span>';
+    const uniqueEmirates=[...new Set(rows.map(getAlarmChartEmirate).filter(Boolean))];
+    makeChart('c_region',{type:'bar',data:{labels:dynamicCats,datasets:uniqueEmirates.map((em,i)=>({label:em,data:dynamicCats.map(a=>rows.filter(r=>getAlarmChartEmirate(r).toUpperCase()===em.toUpperCase()&&(r['Alarm Category']||'').trim()===a).length),backgroundColor:[RED,CB,AMBER,CA,CC][i % 5]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
+  }
 }
 function showToast(msg,type='success'){
   const t=document.getElementById('toast');
@@ -911,9 +977,9 @@ function buildDashboard(rows){
   const outageByClass=classes.map(cls=>rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')).length);
   makeChart('c_outages',{type:'doughnut',data:{labels:classes.map((c,i)=>c+' ('+n(outageByClass[i])+')'),datasets:[{data:outageByClass.map(v=>v||0.01),backgroundColor:[CA+'dd',CB+'66',CC+'66'],borderColor:['#0f1117'],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}}}});
 
-  const getChartEmirate=function(r){ return (r['Emirate']||r['Region']||'').trim(); };
-  const uniqueEmirates=[...new Set(rows.map(getChartEmirate).filter(Boolean))];
-  makeChart('c_region',{type:'bar',data:{labels:dynamicCats,datasets:uniqueEmirates.map((em,i)=>({label:em,data:dynamicCats.map(a=>rows.filter(r=>getChartEmirate(r).toUpperCase()===em.toUpperCase()&&(r['Alarm Category']||'').trim()===a).length),backgroundColor:[RED,CB,AMBER,CA,CC][i % 5]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
+  window._alarmChartRows = rows;
+  window._alarmChartCats = dynamicCats;
+  renderAlarmCategoryChart(rows, dynamicCats);
 
   // ── Class A Open Tickets Breakdown ───────────────────────────────────────
   var classAOpen=rows.filter(function(r){
