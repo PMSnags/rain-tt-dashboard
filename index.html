@@ -578,6 +578,19 @@ const tickC='#8b90a4',gridC='rgba(255,255,255,0.05)';
 const chartInstances={};
 let allRows=[];
 
+function isOpenTicket(r){
+  return !((r['TT Status']||'').toUpperCase().includes('CLOSED'));
+}
+function isOffAirTicket(r){
+  const siteStatus=(r['Current site status']||'').toLowerCase();
+  const siteDown=(r['Site Down Yes/ No']||'').toUpperCase();
+  return isOpenTicket(r) && (siteStatus.includes('off') || siteDown==='YES');
+}
+function uniqueSiteCount(rows){
+  return [...new Set((rows||[]).map(r => (r['Site ID']||'').trim()).filter(Boolean))].length;
+}
+
+
 function n(v){return(v||0).toLocaleString();}
 function scaleOpts(){
   return{x:{grid:{color:gridC},ticks:{color:tickC,font:{size:11}}},y:{grid:{color:gridC},beginAtZero:true,ticks:{stepSize:1,color:tickC,font:{size:11}}}};
@@ -1011,7 +1024,7 @@ function buildDashboard(rows){
 
   document.getElementById('kpi-total').textContent=n(total);
   document.getElementById('kpi-open').textContent=n(openRows.length);
-  document.getElementById('kpi-down').textContent=n(down.length);
+  document.getElementById('kpi-down').textContent=n(uniqueSiteCount(down));
   document.getElementById('kpi-closed').textContent=n(closedRows.length);
   document.getElementById('kpi-sub').textContent=regions.map(r=>r+': '+rows.filter(x=>x['Region']===r).length).join(' · ');
 
@@ -1030,7 +1043,7 @@ function buildDashboard(rows){
     const downC=sub.filter(r=>(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')).length;
     const onairC=sub.length-downC;
     const rgns=[...new Set(sub.map(r=>r['Region']||'').filter(Boolean))].join(', ')||'—';
-    const pct=sub.length>0?Math.round(onairC/sub.length*100):100;
+    const pct=uniqueSiteCount(subOpen)>0?Math.round(onairC/uniqueSiteCount(subOpen)*100):100;
     scHtml+=`<div class="sc-card ${classKeys[i]}">
       <div class="sc-badge">${cls}</div>
       <div class="sc-total">${n(sub.length)}</div>
@@ -1109,7 +1122,7 @@ function buildDashboard(rows){
   const incData=classes.map(cls=>dynamicCats.map(a=>rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()&&(r['Alarm Category']||'').trim()===a).length));
   makeChart('c_incidents',{type:'bar',data:{labels:dynamicCats,datasets:classes.map((cls,i)=>({label:cls,data:incData[i],backgroundColor:[CA,CB,CC][i]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
 
-  const outageByClass=classes.map(cls=>rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')).length);
+  const outageByClass=classes.map(cls=>uniqueSiteCount(rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()).filter(isOffAirTicket)));
   makeChart('c_outages',{type:'doughnut',data:{labels:classes.map((c,i)=>c+' ('+n(outageByClass[i])+')'),datasets:[{data:outageByClass.map(v=>v||0.01),backgroundColor:[CA+'dd',CB+'66',CC+'66'],borderColor:['#0f1117'],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}}}});
 
   window._alarmChartRows = rows;
@@ -1363,7 +1376,7 @@ function updateKPIs(){
   var down=openRows.filter(r=>(r['Current site status']||'').toLowerCase().includes('off'));
   document.getElementById('kpi-total').textContent=n(allRows.length);
   document.getElementById('kpi-open').textContent=n(openRows.length);
-  document.getElementById('kpi-down').textContent=n(down.length);
+  document.getElementById('kpi-down').textContent=n(uniqueSiteCount(down));
   document.getElementById('kpi-closed').textContent=n(closedRows.length);
   var _bd=document.getElementById('b-down'); if(_bd) _bd.textContent=n(down.length);
   var _bo=document.getElementById('b-onair'); if(_bo) _bo.textContent=n(openRows.length-down.length);
