@@ -710,22 +710,37 @@ function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 
 
 function buildEmirateBreakdown(rows){
-  const emirates=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))].sort();
+  const getEmirate=function(r){
+    return (r['Emirate']||r['Region']||'').trim();
+  };
+  const emirates=[...new Set(rows.map(getEmirate).filter(Boolean))].sort();
   const alarmCategories=[...new Set(rows.map(r=>(r['Alarm Category']||'').trim()).filter(Boolean))].sort();
+
   return emirates.map(function(emirate){
     const emirateRows=rows.filter(function(r){
-      return (r['Region']||'').toUpperCase()===emirate.toUpperCase();
+      return getEmirate(r).toUpperCase()===emirate.toUpperCase();
     });
+
     const byAlarm=alarmCategories.map(function(alarm){
-      const count=emirateRows.filter(function(r){
+      const alarmRows=emirateRows.filter(function(r){
         return (r['Alarm Category']||'').trim()===alarm;
+      });
+      const closed=alarmRows.filter(function(r){
+        return (r['TT Status']||'').toUpperCase().includes('CLOSED');
       }).length;
-      return {alarm:alarm,count:count};
-    }).filter(function(item){ return item.count>0; });
+      const open=alarmRows.length-closed;
+      return {alarm:alarm,open:open,closed:closed,total:alarmRows.length};
+    }).filter(function(item){ return item.total>0; });
+
+    const totalOpen=byAlarm.reduce(function(sum,item){ return sum+item.open; },0);
+    const totalClosed=byAlarm.reduce(function(sum,item){ return sum+item.closed; },0);
+
     return {
       emirate:emirate,
       rows:byAlarm,
-      totalTickets:emirateRows.length
+      totalOpen:totalOpen,
+      totalClosed:totalClosed,
+      totalTickets:totalOpen+totalClosed
     };
   }).filter(function(item){ return item.totalTickets>0; });
 }
@@ -735,7 +750,7 @@ function renderEmirateBreakdown(rows){
   if(!wrap)return;
   const breakdown=buildEmirateBreakdown(rows);
   if(breakdown.length===0){
-    wrap.innerHTML='<div class="region-card"><div class="region-card-title">No emirate data available</div><div style="font-size:12px;color:var(--muted);">No emirate values were found in column G of the linked Google Sheets.</div></div>';
+    wrap.innerHTML='<div class="region-card"><div class="region-card-title">No emirate data available</div><div style="font-size:12px;color:var(--muted);">No emirate values were found in the <b>Emirate</b> column of the linked Google Sheets.</div></div>';
     return;
   }
   wrap.innerHTML=breakdown.map(function(item){
@@ -743,18 +758,22 @@ function renderEmirateBreakdown(rows){
       ? item.rows.map(function(entry){
           return '<tr>'+
             '<td>'+e(entry.alarm)+'</td>'+
-            '<td><b>'+n(entry.count)+'</b></td>'+
+            '<td style="color:'+AMBER+'"><b>'+n(entry.open)+'</b></td>'+
+            '<td style="color:'+GREEN+'"><b>'+n(entry.closed)+'</b></td>'+
+            '<td><b>'+n(entry.total)+'</b></td>'+
           '</tr>';
         }).join('')
-      : '<tr><td style="color:var(--muted)">No alarm category data</td><td>—</td></tr>';
+      : '<tr><td style="color:var(--muted)">No alarm category data</td><td>—</td><td>—</td><td>—</td></tr>';
     return '<div class="region-card">'+
       '<div class="region-card-title">'+e(item.emirate)+' — Alarm Category Breakdown</div>'+
       '<table class="summary-table">'+
-        '<thead><tr><th style="text-align:left">Alarm Category</th><th>Count</th></tr></thead>'+
+        '<thead><tr><th style="text-align:left">Alarm Category</th><th>Open</th><th>Closed</th><th>Total</th></tr></thead>'+
         '<tbody>'+
           rowsHtml+
           '<tr>'+
             '<td style="font-weight:600">Total</td>'+
+            '<td style="color:'+AMBER+'"><b>'+n(item.totalOpen)+'</b></td>'+
+            '<td style="color:'+GREEN+'"><b>'+n(item.totalClosed)+'</b></td>'+
             '<td><b>'+n(item.totalTickets)+'</b></td>'+
           '</tr>'+
         '</tbody>'+
