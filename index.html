@@ -921,6 +921,60 @@ function renderEmirateBreakdown(rows){
 }
 
 
+
+function updateAlertBanners(openRows, downRows, rows){
+  const getSiteId = r => (r['Site ID'] || '').trim();
+  const uniq = arr => [...new Set(arr.filter(Boolean))];
+
+  const offAirSites = uniq(downRows.map(getSiteId));
+  const siteDownSites = uniq(
+    openRows.filter(r => (r['Site Down Yes/ No'] || '').toUpperCase() === 'YES').map(getSiteId)
+  );
+  const openTTSites = uniq(openRows.map(getSiteId));
+
+  const offAirBanner = document.getElementById('alert-offair');
+  const siteDownBanner = document.getElementById('alert-sitedown');
+  const openTTBanner = document.getElementById('alert-opentt');
+
+  const offAirText = document.getElementById('alert-offair-text');
+  const siteDownText = document.getElementById('alert-sitedown-text');
+  const openTTText = document.getElementById('alert-opentt-text');
+
+  if (offAirBanner && offAirText) {
+    if (offAirSites.length) {
+      offAirBanner.style.display = 'flex';
+      offAirText.textContent = offAirSites.length + ' site(s) currently off air';
+      offAirText.title = offAirSites.join(', ');
+      offAirText.style.cursor = 'help';
+    } else {
+      offAirBanner.style.display = 'none';
+    }
+  }
+
+  if (siteDownBanner && siteDownText) {
+    if (siteDownSites.length) {
+      siteDownBanner.style.display = 'flex';
+      siteDownText.textContent = siteDownSites.length + ' site(s) marked down';
+      siteDownText.title = siteDownSites.join(', ');
+      siteDownText.style.cursor = 'help';
+    } else {
+      siteDownBanner.style.display = 'none';
+    }
+  }
+
+  if (openTTBanner && openTTText) {
+    if (openTTSites.length) {
+      openTTBanner.style.display = 'flex';
+      openTTText.textContent = openTTSites.length + ' site(s) with open / ongoing tickets';
+      openTTText.title = openTTSites.join(', ');
+      openTTText.style.cursor = 'help';
+    } else {
+      openTTBanner.style.display = 'none';
+    }
+  }
+}
+
+
 function buildDashboard(rows){
   rows=rows.map(norm).filter(r=>r['TT Date']||r['TT Number']||r['Site ID']);
   allRows=rows;
