@@ -922,15 +922,18 @@ function renderEmirateBreakdown(rows){
 
 
 
-function updateAlertBanners(openRows, downRows, rows){
+
+
+
+function updateAlertBanners(openRows, downRows, allRows){
   const getSiteId = r => (r['Site ID'] || '').trim();
   const uniq = arr => [...new Set(arr.filter(Boolean))];
 
-  const offAirSites = uniq(downRows.map(getSiteId));
+  const offAirSites = uniq((downRows || []).map(getSiteId));
   const siteDownSites = uniq(
-    openRows.filter(r => (r['Site Down Yes/ No'] || '').toUpperCase() === 'YES').map(getSiteId)
+    (openRows || allRows || []).filter(r => (r['Site Down Yes/ No'] || '').toUpperCase() === 'YES').map(getSiteId)
   );
-  const openTTSites = uniq(openRows.map(getSiteId));
+  const openTTSites = uniq((openRows || []).map(getSiteId));
 
   const offAirBanner = document.getElementById('alert-offair');
   const siteDownBanner = document.getElementById('alert-sitedown');
@@ -948,6 +951,8 @@ function updateAlertBanners(openRows, downRows, rows){
       offAirText.style.cursor = 'help';
     } else {
       offAirBanner.style.display = 'none';
+      offAirText.textContent = '';
+      offAirText.removeAttribute('title');
     }
   }
 
@@ -959,6 +964,8 @@ function updateAlertBanners(openRows, downRows, rows){
       siteDownText.style.cursor = 'help';
     } else {
       siteDownBanner.style.display = 'none';
+      siteDownText.textContent = '';
+      siteDownText.removeAttribute('title');
     }
   }
 
@@ -970,10 +977,11 @@ function updateAlertBanners(openRows, downRows, rows){
       openTTText.style.cursor = 'help';
     } else {
       openTTBanner.style.display = 'none';
+      openTTText.textContent = '';
+      openTTText.removeAttribute('title');
     }
   }
 }
-
 
 function buildDashboard(rows){
   rows=rows.map(norm).filter(r=>r['TT Date']||r['TT Number']||r['Site ID']);
@@ -1243,50 +1251,7 @@ function buildTTRow(r, idx){
   </tr>`;
 }
 
-function updateAlertBanners(openRows, down, allRows){
-  // Red: use the full down array (already catches off air + Site Down=Yes)
-  var offAirEl=document.getElementById('alert-offair');
-  var offAirTxt=document.getElementById('alert-offair-text');
-  if(down.length>0){
-    offAirEl.style.display='flex';
-    offAirTxt.innerHTML='<strong>&#9888; '+down.length+' SITE(S) OFF AIR / DOWN:</strong> '+
-      down.map(function(r){
-        var reg=r['Region']?' ['+r['Region']+']':'';
-        return (r['Site ID']||'?')+reg;
-      }).join(', ')+' — Immediate escalation required.';
-  } else {
-    offAirEl.style.display='none';
-  }
 
-  var siteDown=(openRows||allRows).filter(function(r){
-    return (r['Site Down Yes/ No']||'').toUpperCase()==='YES';
-  });
-  var downEl=document.getElementById('alert-sitedown');
-  var downTxt=document.getElementById('alert-sitedown-text');
-  if(siteDown.length>0){
-    downEl.style.display='flex';
-    downTxt.innerHTML='<strong>&#9679; '+siteDown.length+' SITE(S) MARKED DOWN:</strong> '+
-      [...new Set(siteDown.map(function(r){return r['Site ID'];}))].join(', ')+' — Site Down = Yes on open tickets.';
-  } else {
-    downEl.style.display='none';
-  }
-
-  var openCount=(openRows||[]).length;
-  var openEl=document.getElementById('alert-opentt');
-  var openTxt=document.getElementById('alert-opentt-text');
-  if(openCount>0){
-    openEl.style.display='flex';
-    var byRegion={};
-    (openRows||[]).forEach(function(r){
-      var reg=r['Region']||'Unknown';
-      byRegion[reg]=(byRegion[reg]||0)+1;
-    });
-    var regionSummary=Object.entries(byRegion).map(function(kv){return kv[0]+': '+kv[1];}).join(' · ');
-    openTxt.innerHTML='<strong>&#8505; '+openCount+' OPEN TT'+(openCount!==1?'s':'')+'</strong> — '+regionSummary;
-  } else {
-    openEl.style.display='none';
-  }
-}
 
 function setTTFilter(filter, btn){
   window._ttFilter=filter;
