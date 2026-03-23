@@ -354,7 +354,7 @@
       <div style="position:relative;height:220px;"><canvas id="c_region"></canvas></div>
     </div>  </div>
 
-  <p class="section-title" style="margin-top:2rem;">Open vs Closed TTs by Emirate &amp; Site Class</p>
+  <p class="section-title" style="margin-top:2rem;">Alarm Category Breakdown by Emirate</p>
   <div id="emirate-breakdown" class="region-grid"></div>
 
   <!-- Class A Open Tickets Breakdown -->
@@ -709,58 +709,52 @@ function fetchLog(){
 function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 
-function buildEmirateBreakdown(rows, classes){
+function buildEmirateBreakdown(rows){
   const emirates=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))].sort();
+  const alarmCategories=[...new Set(rows.map(r=>(r['Alarm Category']||'').trim()).filter(Boolean))].sort();
   return emirates.map(function(emirate){
-    const byClass=classes.map(function(cls){
-      const subset=rows.filter(function(r){
-        return (r['Region']||'').toUpperCase()===emirate.toUpperCase() &&
-               (r['Site Class']||'').toUpperCase()===cls.toUpperCase();
-      });
-      const open=subset.filter(function(r){
-        return !(r['TT Status']||'').toUpperCase().includes('CLOSED');
-      }).length;
-      const closed=subset.length-open;
-      return {cls:cls,open:open,closed:closed,total:subset.length};
+    const emirateRows=rows.filter(function(r){
+      return (r['Region']||'').toUpperCase()===emirate.toUpperCase();
     });
+    const byAlarm=alarmCategories.map(function(alarm){
+      const count=emirateRows.filter(function(r){
+        return (r['Alarm Category']||'').trim()===alarm;
+      }).length;
+      return {alarm:alarm,count:count};
+    }).filter(function(item){ return item.count>0; });
     return {
       emirate:emirate,
-      rows:byClass,
-      totalOpen:byClass.reduce(function(sum,item){return sum+item.open;},0),
-      totalClosed:byClass.reduce(function(sum,item){return sum+item.closed;},0),
-      totalTickets:byClass.reduce(function(sum,item){return sum+item.total;},0)
+      rows:byAlarm,
+      totalTickets:emirateRows.length
     };
-  });
+  }).filter(function(item){ return item.totalTickets>0; });
 }
 
-function renderEmirateBreakdown(rows, classes){
+function renderEmirateBreakdown(rows){
   const wrap=document.getElementById('emirate-breakdown');
   if(!wrap)return;
-  const breakdown=buildEmirateBreakdown(rows, classes);
+  const breakdown=buildEmirateBreakdown(rows);
   if(breakdown.length===0){
-    wrap.innerHTML='<div class="region-card"><div class="region-card-title">No emirate data available</div><div style="font-size:12px;color:var(--muted);">No region values were found in the linked Google Sheet.</div></div>';
+    wrap.innerHTML='<div class="region-card"><div class="region-card-title">No emirate data available</div><div style="font-size:12px;color:var(--muted);">No emirate values were found in column G of the linked Google Sheets.</div></div>';
     return;
   }
   wrap.innerHTML=breakdown.map(function(item){
-    const rowsHtml=item.rows.map(function(entry){
-      const pillCls=entry.cls.includes('A')?'pill-A':entry.cls.includes('B')?'pill-B':'pill-C';
-      return '<tr>'+
-        '<td><span class="pill '+pillCls+'">'+e(entry.cls)+'</span></td>'+
-        '<td style="color:'+AMBER+'">'+(entry.open||'—')+'</td>'+
-        '<td style="color:'+GREEN+'">'+(entry.closed||'—')+'</td>'+
-        '<td><b>'+(entry.total||'—')+'</b></td>'+
-        '</tr>';
-    }).join('');
+    const rowsHtml=item.rows.length
+      ? item.rows.map(function(entry){
+          return '<tr>'+
+            '<td>'+e(entry.alarm)+'</td>'+
+            '<td><b>'+n(entry.count)+'</b></td>'+
+          '</tr>';
+        }).join('')
+      : '<tr><td style="color:var(--muted)">No alarm category data</td><td>—</td></tr>';
     return '<div class="region-card">'+
-      '<div class="region-card-title">'+e(item.emirate)+' — TT Breakdown</div>'+
+      '<div class="region-card-title">'+e(item.emirate)+' — Alarm Category Breakdown</div>'+
       '<table class="summary-table">'+
-        '<thead><tr><th style="text-align:left">Class</th><th>Open</th><th>Closed</th><th>Total</th></tr></thead>'+
+        '<thead><tr><th style="text-align:left">Alarm Category</th><th>Count</th></tr></thead>'+
         '<tbody>'+
           rowsHtml+
           '<tr>'+
             '<td style="font-weight:600">Total</td>'+
-            '<td style="color:'+AMBER+'"><b>'+n(item.totalOpen)+'</b></td>'+
-            '<td style="color:'+GREEN+'"><b>'+n(item.totalClosed)+'</b></td>'+
             '<td><b>'+n(item.totalTickets)+'</b></td>'+
           '</tr>'+
         '</tbody>'+
@@ -870,7 +864,7 @@ function buildDashboard(rows){
   buildRegionTable('tbody-auh-inc','thead-auh-inc',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'));
   buildRegionTable('tbody-dxb-out','thead-dxb-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
   buildRegionTable('tbody-auh-out','thead-auh-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
-  renderEmirateBreakdown(rows, classes);
+  renderEmirateBreakdown(rows);
 
   
   const uniqueRegionsForFilter=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))].sort();
