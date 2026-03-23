@@ -1039,9 +1039,11 @@ function buildDashboard(rows){
   let scHtml='';
   classes.forEach((cls,i)=>{
     const sub=rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase());
-    const openC=sub.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED') && !(r['TT Status']||'').toUpperCase().includes('RESOLVED')).length;
-    const downC=sub.filter(r=>(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')).length;
-    const onairC=sub.length-downC;
+    const subOpen=sub.filter(isOpenTicket);
+    const subDown=subOpen.filter(isOffAirTicket);
+    const openC=subOpen.length;
+    const downC=uniqueSiteCount(subDown);
+    const onairC=Math.max(uniqueSiteCount(subOpen)-downC,0);
     const rgns=[...new Set(sub.map(r=>r['Region']||'').filter(Boolean))].join(', ')||'—';
     const pct=uniqueSiteCount(subOpen)>0?Math.round(onairC/uniqueSiteCount(subOpen)*100):100;
     scHtml+=`<div class="sc-card ${classKeys[i]}">
