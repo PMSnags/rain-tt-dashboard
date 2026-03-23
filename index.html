@@ -1112,27 +1112,57 @@ function refreshData(){
 }
 
 function downloadExcel(){
-  
-  if(!allRows||allRows.length===0){showToast('No data to download','error');return;}
-  var headers=Object.keys(allRows[0]);
-  var csv=[headers.join(',')];
-  allRows.forEach(function(r){
-    var row=headers.map(function(h){
-      var v=String(r[h]||'').replace(/"/g,'""');
-      return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v+'"':v;
+  showToast('Fetching all records from both sheets...','success');
+  var ts='&nocache='+Date.now();
+  Promise.all([
+    fetch(SHEET_CSV_URL_AUH+ts).then(function(r){return r.text();}),
+    fetch(SHEET_CSV_URL_DXB+ts).then(function(r){return r.text();})
+  ])
+  .then(function(results){
+    var auhRows=csvToObjects(results[0]);
+    var dxbRows=csvToObjects(results[1]);
+    var combined=auhRows.concat(dxbRows);
+    if(combined.length===0){showToast('No data to download','error');return;}
+    var headers=Object.keys(combined[0]);
+    var csv=[headers.join(',')];
+    combined.forEach(function(r){
+      var row=headers.map(function(h){
+        var v=String(r[h]||'').replace(/"/g,'""');
+        return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v+'"':v;
+      });
+      csv.push(row.join(','));
     });
-    csv.push(row.join(','));
+    var blob=new Blob(['\uFEFF'+csv.join('\n')],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='Rain_TT_All_Records_'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);URL.revokeObjectURL(url);
+    showToast('Downloaded '+combined.length+' records from both sheets ✓','success');
+  })
+  .catch(function(err){
+    console.warn('Download failed, using loaded data:', err.message);
+    if(!allRows||allRows.length===0){showToast('No data to download','error');return;}
+    var headers=Object.keys(allRows[0]);
+    var csv=[headers.join(',')];
+    allRows.forEach(function(r){
+      var row=headers.map(function(h){
+        var v=String(r[h]||'').replace(/"/g,'""');
+        return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v+'"':v;
+      });
+      csv.push(row.join(','));
+    });
+    var blob=new Blob(['\uFEFF'+csv.join('\n')],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='Rain_TT_All_Records_'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);URL.revokeObjectURL(url);
+    showToast('Downloaded '+allRows.length+' records ✓','success');
   });
-  var blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8;'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;
-  a.download='Rain_TT_Tracker_'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Downloaded ✓','success');
+}
 }
 
 function loadData(){
