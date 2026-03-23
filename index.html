@@ -200,13 +200,17 @@
 
 <script>
   
-  const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSy6Yz2sRdM3CfM_XSaqfntA1Uksqk6HwITZPQIB7iQ9SfGkSbITESJlkzqEFVJxRrGIyK5xtzjEHFB/pub?gid=0&single=true&output=csv';
+  // AUH tab (gid=0)
+  const SHEET_CSV_URL_AUH = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSy6Yz2sRdM3CfM_XSaqfntA1Uksqk6HwITZPQIB7iQ9SfGkSbITESJlkzqEFVJxRrGIyK5xtzjEHFB/pub?gid=0&single=true&output=csv';
+  // DXB_NE tab (gid=539926438)
+  const SHEET_CSV_URL_DXB = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSy6Yz2sRdM3CfM_XSaqfntA1Uksqk6HwITZPQIB7iQ9SfGkSbITESJlkzqEFVJxRrGIyK5xtzjEHFB/pub?gid=539926438&single=true&output=csv';
+  const SHEET_CSV_URL = SHEET_CSV_URL_AUH;
 
   
   
   const SPREADSHEET_ID = '1TUUSlkznifmAyggs8Ngghkj_DYuNxO63leEeQLCMoHI';
 
-  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwtbSZ0JuZF_vi21ftdfQmjm1Qmo0hGTfgMeoescvrbSEFC5lSjrk5FxxL-Y96hcOX9BA/exec';
+  let APPS_SCRIPT_URL = localStorage.getItem('dg_apps_script_url') || 'https://script.google.com/macros/s/AKfycbzCNjnaDph8F5Bmq007TVrJivDuuHU9IaWUd8D0F7aWxzMdT72aN7yWnUn5ozXgqf4/exec';
   
 </script>
 
@@ -1132,36 +1136,43 @@ function downloadExcel(){
 }
 
 function loadData(){
-  var lm=document.getElementById('loading-msg'); if(lm) lm.textContent='Loading data from Google Sheets...';
-  gasCall({action:'getData'}, 20000)
-    .then(function(data){
-      if(data && data.result==='ok' && data.rows && data.rows.length>0){
-        buildDashboard(data.rows);
-      } else {
-        console.warn('Apps Script returned no rows, trying CSV');
-        loadCSV();
-      }
-    })
-    .catch(function(err){
-      console.warn('Apps Script getData failed, trying CSV:', err.message);
-      loadCSV();
-    });
+  // Load both region tabs in parallel then merge
+  loadCSV();
 }
 
 function loadCSV(){
-  var lm2=document.getElementById('loading-msg'); if(lm2) lm2.textContent='Loading via CSV...';
-  fetch(SHEET_CSV_URL+'&nocache='+Date.now())
-    .then(function(r){ return r.text(); })
-    .then(function(text){
-      var rows = csvToObjects(text);
-      if(rows.length>0){ buildDashboard(rows); }
-      else { throw new Error('Empty CSV'); }
-    })
-    .catch(function(err){
-      console.warn('CSV fetch failed:', err.message);
-      var lm3=document.getElementById('loading-msg'); if(lm3) lm3.textContent='Could not load data. Showing demo.';
-      setTimeout(loadDemo, 1500);
-    });
+  var lm2=document.getElementById('loading-msg'); if(lm2) lm2.textContent='Loading data from both regions...';
+  var ts='&nocache='+Date.now();
+  Promise.all([
+    fetch(SHEET_CSV_URL_AUH+ts).then(function(r){return r.text();}),
+    fetch(SHEET_CSV_URL_DXB+ts).then(function(r){return r.text();})
+  ])
+  .then(function(results){
+    var auhRows=csvToObjects(results[0]);
+    var dxbRows=csvToObjects(results[1]);
+    var allRows=auhRows.concat(dxbRows);
+    if(allRows.length>0){
+      buildDashboard(allRows);
+    } else {
+      throw new Error('Both CSVs empty');
+    }
+  })
+  .catch(function(err){
+    console.warn('CSV fetch failed:', err.message);
+    // Try each individually as fallback
+    var lm2b=document.getElementById('loading-msg'); if(lm2b) lm2b.textContent='Retrying single source...';
+    fetch(SHEET_CSV_URL_AUH+ts)
+      .then(function(r){return r.text();})
+      .then(function(text){
+        var rows=csvToObjects(text);
+        if(rows.length>0){ buildDashboard(rows); }
+        else { throw new Error('Empty'); }
+      })
+      .catch(function(){
+        var lm3=document.getElementById('loading-msg'); if(lm3) lm3.textContent='Could not load data. Showing demo.';
+        setTimeout(loadDemo,1500);
+      });
+  });
 }
 
 function csvToObjects(csv){
