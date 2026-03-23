@@ -713,7 +713,12 @@ function buildDashboard(rows){
   const total=rows.length;
   const closedRows=rows.filter(r=>(r['TT Status']||'').toUpperCase().includes('CLOSED'));
   const openRows=rows.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED'));
-  const down=openRows.filter(r=>(r['Current site status']||r['Site Down Yes/ No']||'').toUpperCase().includes('OFF'));
+  // Catch all off-air variations: "Off air", "Off Air", "OFF AIR", or Site Down Yes/No = Yes
+  const down=openRows.filter(r=>{
+    const siteStatus=(r['Current site status']||'').toLowerCase();
+    const siteDown=(r['Site Down Yes/ No']||'').toUpperCase();
+    return siteStatus.includes('off') || siteDown==='YES';
+  });
   const regions=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))];
   const today=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
 
@@ -968,16 +973,16 @@ function buildTTRow(r, idx){
 }
 
 function updateAlertBanners(openRows, down, allRows){
-  
-  var offAir=down.filter(function(r){
-    return (r['Current site status']||'').toLowerCase().includes('off');
-  });
+  // Red: use the full down array (already catches off air + Site Down=Yes)
   var offAirEl=document.getElementById('alert-offair');
   var offAirTxt=document.getElementById('alert-offair-text');
-  if(offAir.length>0){
+  if(down.length>0){
     offAirEl.style.display='flex';
-    offAirTxt.innerHTML='<strong>&#9888; '+offAir.length+' SITE(S) OFF AIR:</strong> '+
-      offAir.map(function(r){return r['Site ID'];}).join(', ')+' — Immediate escalation required.';
+    offAirTxt.innerHTML='<strong>&#9888; '+down.length+' SITE(S) OFF AIR / DOWN:</strong> '+
+      down.map(function(r){
+        var reg=r['Region']?' ['+r['Region']+']':'';
+        return (r['Site ID']||'?')+reg;
+      }).join(', ')+' — Immediate escalation required.';
   } else {
     offAirEl.style.display='none';
   }
