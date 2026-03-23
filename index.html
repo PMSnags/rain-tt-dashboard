@@ -352,8 +352,10 @@
     <div class="chart-card full">
       <div class="chart-title">Alarm categories by region <span>all regions</span></div>
       <div style="position:relative;height:220px;"><canvas id="c_region"></canvas></div>
-    </div>
-  </div>
+    </div>  </div>
+
+  <p class="section-title" style="margin-top:2rem;">Open vs Closed TTs by Emirate &amp; Site Class</p>
+  <div id="emirate-breakdown" class="region-grid"></div>
 
   <!-- Class A Open Tickets Breakdown -->
   <p class="section-title" style="margin-top:2rem;">Class A — Open Tickets Breakdown <span id="classa-open-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-left:6px;"></span></p>
@@ -706,6 +708,67 @@ function fetchLog(){
 }
 function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+
+function buildEmirateBreakdown(rows, classes){
+  const emirates=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))].sort();
+  return emirates.map(function(emirate){
+    const byClass=classes.map(function(cls){
+      const subset=rows.filter(function(r){
+        return (r['Region']||'').toUpperCase()===emirate.toUpperCase() &&
+               (r['Site Class']||'').toUpperCase()===cls.toUpperCase();
+      });
+      const open=subset.filter(function(r){
+        return !(r['TT Status']||'').toUpperCase().includes('CLOSED');
+      }).length;
+      const closed=subset.length-open;
+      return {cls:cls,open:open,closed:closed,total:subset.length};
+    });
+    return {
+      emirate:emirate,
+      rows:byClass,
+      totalOpen:byClass.reduce(function(sum,item){return sum+item.open;},0),
+      totalClosed:byClass.reduce(function(sum,item){return sum+item.closed;},0),
+      totalTickets:byClass.reduce(function(sum,item){return sum+item.total;},0)
+    };
+  });
+}
+
+function renderEmirateBreakdown(rows, classes){
+  const wrap=document.getElementById('emirate-breakdown');
+  if(!wrap)return;
+  const breakdown=buildEmirateBreakdown(rows, classes);
+  if(breakdown.length===0){
+    wrap.innerHTML='<div class="region-card"><div class="region-card-title">No emirate data available</div><div style="font-size:12px;color:var(--muted);">No region values were found in the linked Google Sheet.</div></div>';
+    return;
+  }
+  wrap.innerHTML=breakdown.map(function(item){
+    const rowsHtml=item.rows.map(function(entry){
+      const pillCls=entry.cls.includes('A')?'pill-A':entry.cls.includes('B')?'pill-B':'pill-C';
+      return '<tr>'+
+        '<td><span class="pill '+pillCls+'">'+e(entry.cls)+'</span></td>'+
+        '<td style="color:'+AMBER+'">'+(entry.open||'—')+'</td>'+
+        '<td style="color:'+GREEN+'">'+(entry.closed||'—')+'</td>'+
+        '<td><b>'+(entry.total||'—')+'</b></td>'+
+        '</tr>';
+    }).join('');
+    return '<div class="region-card">'+
+      '<div class="region-card-title">'+e(item.emirate)+' — TT Breakdown</div>'+
+      '<table class="summary-table">'+
+        '<thead><tr><th style="text-align:left">Class</th><th>Open</th><th>Closed</th><th>Total</th></tr></thead>'+
+        '<tbody>'+
+          rowsHtml+
+          '<tr>'+
+            '<td style="font-weight:600">Total</td>'+
+            '<td style="color:'+AMBER+'"><b>'+n(item.totalOpen)+'</b></td>'+
+            '<td style="color:'+GREEN+'"><b>'+n(item.totalClosed)+'</b></td>'+
+            '<td><b>'+n(item.totalTickets)+'</b></td>'+
+          '</tr>'+
+        '</tbody>'+
+      '</table>'+
+    '</div>';
+  }).join('');
+}
+
 function buildDashboard(rows){
   rows=rows.map(norm).filter(r=>r['TT Date']||r['TT Number']||r['Site ID']);
   allRows=rows;
@@ -807,6 +870,7 @@ function buildDashboard(rows){
   buildRegionTable('tbody-auh-inc','thead-auh-inc',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'));
   buildRegionTable('tbody-dxb-out','thead-dxb-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
   buildRegionTable('tbody-auh-out','thead-auh-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
+  renderEmirateBreakdown(rows, classes);
 
   
   const uniqueRegionsForFilter=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))].sort();
