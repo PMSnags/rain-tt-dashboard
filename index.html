@@ -690,6 +690,7 @@ function buildDashboard(rows){
   let scHtml='';
   classes.forEach((cls,i)=>{
     const sub=rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase());
+    const openC=sub.filter(r=>!(r['TT Status']||'').toUpperCase().includes('CLOSED')).length;
     const downC=sub.filter(r=>(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')).length;
     const onairC=sub.length-downC;
     const rgns=[...new Set(sub.map(r=>r['Region']||'').filter(Boolean))].join(', ')||'—';
@@ -699,7 +700,7 @@ function buildDashboard(rows){
       <div class="sc-total">${n(sub.length)}</div>
       <div class="sc-sub">${classSubs[i]}</div>
       <div class="sc-split">
-        <div class="sc-split-item"><div class="sc-split-label">Incidents</div><div class="sc-split-val" style="color:${AMBER}">${n(sub.length)}</div></div>
+        <div class="sc-split-item"><div class="sc-split-label">Open TTs</div><div class="sc-split-val" style="color:${AMBER}">${n(openC)}</div></div>
         <div class="sc-split-item"><div class="sc-split-label">Off Air</div><div class="sc-split-val" style="color:${downC>0?RED:GREEN}">${n(downC)}</div></div>
         <div class="sc-split-item"><div class="sc-split-label">Regions</div><div class="sc-split-val" style="color:var(--muted);font-size:.8rem">${rgns}</div></div>
       </div>
