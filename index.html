@@ -360,14 +360,7 @@
       <div style="position:relative;height:260px;"><canvas id="c_region"></canvas></div>
     </div>  </div>
 
-  <p class="section-title" style="margin-top:2rem;">Alarm Category Breakdown</p>
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:1.25rem;">
-    <div style="font-size:13px;font-weight:500;color:var(--text);" id="breakdown-card-title">Alarm Category Breakdown by Emirate <span style="color:var(--muted);font-weight:400;font-size:12px;margin-left:6px;">open / closed / total</span></div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="tt-filter-btn active" id="breakdown-emirate-btn" onclick="setBreakdownMode('emirate',this)">Emirate View</button>
-      <button class="tt-filter-btn" id="breakdown-class-btn" onclick="setBreakdownMode('class',this)">Site Class View</button>
-    </div>
-  </div>
+  <p class="section-title" style="margin-top:2rem;">Alarm Category Breakdown by Emirate</p>
   <div id="emirate-breakdown" class="region-grid"></div>
 
   <!-- Class A Open Tickets Breakdown -->
@@ -537,17 +530,8 @@ function makeChart(id,config){
 }
 
 window._alarmChartMode='emirate';
-window._breakdownMode='emirate';
 function getAlarmChartEmirate(row){
   return (row['Emirate']||row['Region']||'').trim();
-}
-function setBreakdownMode(mode,btn){
-  window._breakdownMode=mode;
-  document.querySelectorAll('#breakdown-emirate-btn, #breakdown-class-btn').forEach(function(el){el.classList.remove('active');});
-  if(btn) btn.classList.add('active');
-  if(window._breakdownRows){
-    renderEmirateBreakdown(window._breakdownRows);
-  }
 }
 function setAlarmChartMode(mode,btn){
   window._alarmChartMode=mode;
@@ -810,40 +794,7 @@ function buildEmirateBreakdown(rows){
     const totalClosed=byAlarm.reduce(function(sum,item){ return sum+item.closed; },0);
 
     return {
-      label:emirate,
-      rows:byAlarm,
-      totalOpen:totalOpen,
-      totalClosed:totalClosed,
-      totalTickets:totalOpen+totalClosed
-    };
-  }).filter(function(item){ return item.totalTickets>0; });
-}
-
-function buildSiteClassBreakdown(rows){
-  const classes=['Class A','Class B','Class C'];
-  const alarmCategories=[...new Set(rows.map(r=>(r['Alarm Category']||'').trim()).filter(Boolean))].sort();
-
-  return classes.map(function(siteClass){
-    const classRows=rows.filter(function(r){
-      return (r['Site Class']||'').toUpperCase()===siteClass.toUpperCase();
-    });
-
-    const byAlarm=alarmCategories.map(function(alarm){
-      const alarmRows=classRows.filter(function(r){
-        return (r['Alarm Category']||'').trim()===alarm;
-      });
-      const closed=alarmRows.filter(function(r){
-        return (r['TT Status']||'').toUpperCase().includes('CLOSED');
-      }).length;
-      const open=alarmRows.length-closed;
-      return {alarm:alarm,open:open,closed:closed,total:alarmRows.length};
-    }).filter(function(item){ return item.total>0; });
-
-    const totalOpen=byAlarm.reduce(function(sum,item){ return sum+item.open; },0);
-    const totalClosed=byAlarm.reduce(function(sum,item){ return sum+item.closed; },0);
-
-    return {
-      label:siteClass,
+      emirate:emirate,
       rows:byAlarm,
       totalOpen:totalOpen,
       totalClosed:totalClosed,
@@ -854,32 +805,13 @@ function buildSiteClassBreakdown(rows){
 
 function renderEmirateBreakdown(rows){
   const wrap=document.getElementById('emirate-breakdown');
-  const titleEl=document.getElementById('breakdown-card-title');
   if(!wrap)return;
-  window._breakdownRows=rows;
-
-  const mode=window._breakdownMode||'emirate';
-  const breakdown=mode==='class' ? buildSiteClassBreakdown(rows) : buildEmirateBreakdown(rows);
-  const emptyMsg=mode==='class'
-    ? 'No site class values were found in the <b>Site Class</b> column of the linked Google Sheets.'
-    : 'No emirate values were found in the <b>Emirate</b> column of the linked Google Sheets.';
-  const sectionTitle=mode==='class'
-    ? 'Alarm Category Breakdown by Site Class <span style="color:var(--muted);font-weight:400;font-size:12px;margin-left:6px;">open / closed / total</span>'
-    : 'Alarm Category Breakdown by Emirate <span style="color:var(--muted);font-weight:400;font-size:12px;margin-left:6px;">open / closed / total</span>';
-  if(titleEl) titleEl.innerHTML=sectionTitle;
-
+  const breakdown=buildEmirateBreakdown(rows);
   if(breakdown.length===0){
-    wrap.innerHTML='<div class="region-card"><div class="region-card-title">No '+(mode==='class'?'site class':'emirate')+' data available</div><div style="font-size:12px;color:var(--muted);">'+emptyMsg+'</div></div>';
+    wrap.innerHTML='<div class="region-card"><div class="region-card-title">No emirate data available</div><div style="font-size:12px;color:var(--muted);">No emirate values were found in the <b>Emirate</b> column of the linked Google Sheets.</div></div>';
     return;
   }
   wrap.innerHTML=breakdown.map(function(item){
-    const pillClass=item.label==='Class A'?'pill-A':item.label==='Class B'?'pill-B':item.label==='Class C'?'pill-C':'';
-    const displayLabel=(mode==='class' && pillClass)
-      ? '<span class="pill '+pillClass+'">'+e(item.label)+'</span>'
-      : e(item.label);
-    const cardTitle=mode==='class'
-      ? displayLabel+' — Alarm Category Breakdown'
-      : e(item.label)+' — Alarm Category Breakdown';
     const rowsHtml=item.rows.length
       ? item.rows.map(function(entry){
           return '<tr>'+
@@ -891,7 +823,7 @@ function renderEmirateBreakdown(rows){
         }).join('')
       : '<tr><td style="color:var(--muted)">No alarm category data</td><td>—</td><td>—</td><td>—</td></tr>';
     return '<div class="region-card">'+
-      '<div class="region-card-title">'+cardTitle+'</div>'+
+      '<div class="region-card-title">'+e(item.emirate)+' — Alarm Category Breakdown</div>'+
       '<table class="summary-table">'+
         '<thead><tr><th style="text-align:left">Alarm Category</th><th>Open</th><th>Closed</th><th>Total</th></tr></thead>'+
         '<tbody>'+
@@ -1177,16 +1109,25 @@ function buildTTRow(r, idx){
 }
 
 function updateAlertBanners(openRows, down, allRows){
+  function escAttr(s){
+    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function hoverNote(label, details){
+    return ' <span style="text-decoration:underline dotted;cursor:help;color:inherit;opacity:.95" title="'+escAttr(details)+'">('+label+')</span>';
+  }
+
   // Red: use the full down array (already catches off air + Site Down=Yes)
   var offAirEl=document.getElementById('alert-offair');
   var offAirTxt=document.getElementById('alert-offair-text');
   if(down.length>0){
     offAirEl.style.display='flex';
-    offAirTxt.innerHTML='<strong>&#9888; '+down.length+' SITE(S) OFF AIR / DOWN:</strong> '+
-      down.map(function(r){
-        var reg=r['Region']?' ['+r['Region']+']':'';
-        return (r['Site ID']||'?')+reg;
-      }).join(', ')+' — Immediate escalation required.';
+    var offAirDetails=down.map(function(r){
+      var em=r['Emirate']||r['Region']||'';
+      var emText=em?' ['+em+']':'';
+      return (r['Site ID']||'?')+emText;
+    }).join(', ');
+    offAirTxt.innerHTML='<strong>&#9888; '+down.length+' SITE(S) OFF AIR / DOWN</strong>'+
+      hoverNote('hover for site IDs', offAirDetails)+' — Immediate escalation required.';
   } else {
     offAirEl.style.display='none';
   }
@@ -1198,8 +1139,12 @@ function updateAlertBanners(openRows, down, allRows){
   var downTxt=document.getElementById('alert-sitedown-text');
   if(siteDown.length>0){
     downEl.style.display='flex';
-    downTxt.innerHTML='<strong>&#9679; '+siteDown.length+' SITE(S) MARKED DOWN:</strong> '+
-      [...new Set(siteDown.map(function(r){return r['Site ID'];}))].join(', ')+' — Site Down = Yes on open tickets.';
+    var uniqueSiteDown=[...new Set(siteDown.map(function(r){
+      var em=r['Emirate']||r['Region']||'';
+      return (r['Site ID']||'?')+(em?' ['+em+']':'');
+    }))];
+    downTxt.innerHTML='<strong>&#9679; '+uniqueSiteDown.length+' SITE(S) MARKED DOWN</strong>'+
+      hoverNote('hover for site IDs', uniqueSiteDown.join(', '))+' — Site Down = Yes on open tickets.';
   } else {
     downEl.style.display='none';
   }
@@ -1211,7 +1156,7 @@ function updateAlertBanners(openRows, down, allRows){
     openEl.style.display='flex';
     var byRegion={};
     (openRows||[]).forEach(function(r){
-      var reg=r['Region']||'Unknown';
+      var reg=r['Emirate']||r['Region']||'Unknown';
       byRegion[reg]=(byRegion[reg]||0)+1;
     });
     var regionSummary=Object.entries(byRegion).map(function(kv){return kv[0]+': '+kv[1];}).join(' · ');
