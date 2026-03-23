@@ -170,6 +170,10 @@
   .footer{border-top:1px solid var(--border);padding:1.5rem 3rem;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);}
   .footer span{color:var(--text);}
 
+  .status-pill{display:inline-block;padding:2px 9px;border-radius:100px;font-size:11px;font-weight:500;}
+  .status-ongoing{background:rgba(245,158,11,0.15);color:#fcd34d;border:1px solid rgba(245,158,11,0.25);}
+  .status-resolved{background:rgba(34,197,94,0.12);color:#4ade80;border:1px solid rgba(34,197,94,0.2);}
+
   /* TT filter buttons */
   .tt-filter-btn{display:inline-flex;align-items:center;padding:5px 14px;border-radius:100px;font-size:12px;font-weight:500;border:1px solid var(--border2);background:var(--bg2);color:var(--muted);cursor:pointer;transition:all .18s;}
   .tt-filter-btn:hover{border-color:rgba(79,156,249,0.4);color:var(--text);}
@@ -344,6 +348,52 @@
     <div class="chart-card full">
       <div class="chart-title">Alarm categories by region <span>all regions</span></div>
       <div style="position:relative;height:220px;"><canvas id="c_region"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Class A Open Tickets Breakdown -->
+  <p class="section-title" style="margin-top:2rem;">Class A — Open Tickets Breakdown <span id="classa-open-count" style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);margin-left:6px;"></span></p>
+  <div id="classa-breakdown-section">
+    <div class="region-grid" style="margin-bottom:14px;">
+      <!-- Alarm category cards -->
+      <div class="chart-card">
+        <div class="chart-title">Open tickets by alarm category <span>Class A only</span></div>
+        <div style="position:relative;height:240px;"><canvas id="c_classa_alarm"></canvas></div>
+      </div>
+      <!-- Site status breakdown -->
+      <div class="chart-card">
+        <div class="chart-title">Site status breakdown <span>Class A open tickets</span></div>
+        <div style="position:relative;height:240px;"><canvas id="c_classa_status"></canvas></div>
+      </div>
+    </div>
+    <!-- Detailed table of all Class A open tickets -->
+    <div class="chart-card" style="margin-bottom:20px;padding:1.25rem 1.5rem;overflow-x:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <div style="font-size:12px;font-weight:600;color:var(--classA);text-transform:uppercase;letter-spacing:.08em;">Class A — Full Detail</div>
+        <span id="classa-table-count" style="font-size:11px;color:var(--muted);"></span>
+      </div>
+      <table class="tt-table">
+        <thead>
+          <tr>
+            <th>TT Date</th>
+            <th>TT Number</th>
+            <th>Description</th>
+            <th>Site ID</th>
+            <th>Region</th>
+            <th>Alarm Category</th>
+            <th>Issue on Site</th>
+            <th>Site Down</th>
+            <th>Site Status</th>
+            <th>ETC</th>
+            <th>Root Cause</th>
+            <th>Action Taken</th>
+            <th>TT Status</th>
+            <th>FE Name</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody id="classa-tbody"></tbody>
+      </table>
     </div>
   </div>
 
@@ -763,6 +813,65 @@ function buildDashboard(rows){
 
   const uniqueRegions=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))];
   makeChart('c_region',{type:'bar',data:{labels:alarmCats,datasets:uniqueRegions.map((reg,i)=>({label:reg,data:alarmCats.map(a=>rows.filter(r=>(r['Region']||'').toUpperCase()===reg.toUpperCase()&&mapAlarm(r['Alarm Category'])===a).length),backgroundColor:[RED,CB,AMBER,CA,CC][i]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
+
+  // ── Class A Open Tickets Breakdown ───────────────────────────────────────
+  var classAOpen=rows.filter(function(r){
+    return (r['Site Class']||'').toUpperCase()==='CLASS A' &&
+           !(r['TT Status']||'').toUpperCase().includes('CLOSED');
+  });
+
+  var caCountEl=document.getElementById('classa-open-count');
+  if(caCountEl) caCountEl.textContent='— '+classAOpen.length+' open ticket'+(classAOpen.length!==1?'s':'');
+
+  var caTableCount=document.getElementById('classa-table-count');
+  if(caTableCount) caTableCount.textContent=classAOpen.length+' ticket'+(classAOpen.length!==1?'s':'');
+
+  // Chart 1: Class A open by alarm category
+  var caAlarmCounts=alarmCats.map(function(a){
+    return classAOpen.filter(function(r){ return mapAlarm(r['Alarm Category'])===a; }).length;
+  });
+  makeChart('c_classa_alarm',{type:'bar',data:{
+    labels:alarmCats,
+    datasets:[{label:'Open Tickets',data:caAlarmCounts,backgroundColor:[RED,CB,AMBER,CA,CC].map(function(c){return c+'cc';}),borderRadius:5,borderWidth:0}]
+  },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:scaleOpts()}});
+
+  // Chart 2: Class A open by site status
+  var caOnAir=classAOpen.filter(function(r){ return !(r['Current site status']||'').toLowerCase().includes('off'); }).length;
+  var caOffAir=classAOpen.filter(function(r){ return (r['Current site status']||'').toLowerCase().includes('off'); }).length;
+  makeChart('c_classa_status',{type:'doughnut',data:{
+    labels:['On Air ('+n(caOnAir)+')','Off Air ('+n(caOffAir)+')'],
+    datasets:[{data:[caOnAir||0.01,caOffAir||0.01],backgroundColor:[GREEN+'cc',RED+'cc'],borderColor:['#0f1117'],borderWidth:2}]
+  },options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}}}});
+
+  // Table: full Class A open ticket detail
+  var caTbody=document.getElementById('classa-tbody');
+  if(caTbody){
+    if(classAOpen.length===0){
+      caTbody.innerHTML='<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:1.5rem;">No open Class A tickets.</td></tr>';
+    } else {
+      caTbody.innerHTML=classAOpen.map(function(r){
+        var isDown=(r['Current site status']||'').toLowerCase().includes('off');
+        var dateStr=(r['TT Date']||'—').toString().split(' ').slice(0,3).join(' ').replace(/\s*GMT.*/,'').trim()||'—';
+        return'<tr>'
+          +'<td style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--muted);white-space:nowrap">'+dateStr+'</td>'
+          +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+e(r['TT Number']||'—')+'</td>'
+          +'<td style="font-weight:500">'+e(r['TT Descrition']||r['TT Description']||'—')+'</td>'
+          +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+e(r['Site ID']||'—')+'</td>'
+          +'<td><span class="region-chip">'+e((r['Region']||'').toUpperCase()||'—')+'</span></td>'
+          +'<td style="font-size:11px">'+e(r['Alarm Category']||'—')+'</td>'
+          +'<td style="font-size:11px;color:var(--muted)">'+e(r['Issu on site']||r['Issue on site']||'—')+'</td>'
+          +'<td><span class="'+(isDown?'site-down-yes':'site-down-no')+'">'+(r['Site Down Yes/ No']||'—')+'</span></td>'
+          +'<td><span class="'+(isDown?'offair':'onair')+'">'+e(r['Current site status']||'—')+'</span></td>'
+          +'<td style="text-align:center;font-size:11px;color:'+((r['ETC leading']||'').toLowerCase()==='yes'?AMBER:GREEN)+'">'+e(r['ETC leading']||'—')+'</td>'
+          +'<td style="font-size:11px;color:var(--muted);max-width:120px">'+e(r['Rootcause']||'—')+'</td>'
+          +'<td style="font-size:11px;color:var(--muted);max-width:140px">'+e(r['Action Taken']||'—')+'</td>'
+          +'<td><span class="status-pill '+(((r['TT Status']||'').toUpperCase().includes('CLOSED'))?'status-resolved':'status-ongoing')+'">'+e(r['TT Status']||'—')+'</span></td>'
+          +'<td style="font-family:\'DM Mono\',monospace;font-size:11px">'+e(r['FE name attending the TT']||'—')+'</td>'
+          +'<td style="font-size:11px;color:var(--muted)">'+e(r['Additional remarks']||'—')+'</td>'
+          +'</tr>';
+      }).join('');
+    }
+  }
 
   document.getElementById('loading').style.display='none';
   document.getElementById('app').style.display='block';
