@@ -821,14 +821,14 @@ function buildDashboard(rows){
 
   applyTTFilters();
 
-  const incData=classes.map(cls=>alarmCats.map(a=>rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()&&mapAlarm(r['Alarm Category'])===a).length));
-  makeChart('c_incidents',{type:'bar',data:{labels:alarmCats,datasets:classes.map((cls,i)=>({label:cls,data:incData[i],backgroundColor:[CA,CB,CC][i]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
+  const incData=classes.map(cls=>dynamicCats.map(a=>rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()&&(r['Alarm Category']||'').trim()===a).length));
+  makeChart('c_incidents',{type:'bar',data:{labels:dynamicCats,datasets:classes.map((cls,i)=>({label:cls,data:incData[i],backgroundColor:[CA,CB,CC][i]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
 
   const outageByClass=classes.map(cls=>rows.filter(r=>(r['Site Class']||'').toUpperCase()===cls.toUpperCase()&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')).length);
   makeChart('c_outages',{type:'doughnut',data:{labels:classes.map((c,i)=>c+' ('+n(outageByClass[i])+')'),datasets:[{data:outageByClass.map(v=>v||0.01),backgroundColor:[CA+'dd',CB+'66',CC+'66'],borderColor:['#0f1117'],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}}}});
 
   const uniqueRegions=[...new Set(rows.map(r=>r['Region']||'').filter(Boolean))];
-  makeChart('c_region',{type:'bar',data:{labels:alarmCats,datasets:uniqueRegions.map((reg,i)=>({label:reg,data:alarmCats.map(a=>rows.filter(r=>(r['Region']||'').toUpperCase()===reg.toUpperCase()&&mapAlarm(r['Alarm Category'])===a).length),backgroundColor:[RED,CB,AMBER,CA,CC][i]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
+  makeChart('c_region',{type:'bar',data:{labels:dynamicCats,datasets:uniqueRegions.map((reg,i)=>({label:reg,data:dynamicCats.map(a=>rows.filter(r=>(r['Region']||'').toUpperCase()===reg.toUpperCase()&&(r['Alarm Category']||'').trim()===a).length),backgroundColor:[RED,CB,AMBER,CA,CC][i]+'cc',borderRadius:5,borderWidth:0}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}},scales:scaleOpts()}});
 
   // ── Class A Open Tickets Breakdown ───────────────────────────────────────
   var classAOpen=rows.filter(function(r){
@@ -837,33 +837,60 @@ function buildDashboard(rows){
   });
 
   var caCountEl=document.getElementById('classa-open-count');
-  if(caCountEl) caCountEl.textContent='— '+classAOpen.length+' open ticket'+(classAOpen.length!==1?'s':'');
+  if(caCountEl){
+    var regionBreakdown=caRegionLabels.map(function(reg){ return reg+': '+caByRegion[reg]; }).join(' · ');
+    caCountEl.textContent='— '+classAOpen.length+' open ticket'+(classAOpen.length!==1?'s':'')+
+      (regionBreakdown?' ('+regionBreakdown+')':'');
+  }
 
   var caTableCount=document.getElementById('classa-table-count');
   if(caTableCount) caTableCount.textContent=classAOpen.length+' ticket'+(classAOpen.length!==1?'s':'');
 
-  // Chart 1: Class A open by alarm category
-  var caAlarmCounts=alarmCats.map(function(a){
-    return classAOpen.filter(function(r){ return mapAlarm(r['Alarm Category'])===a; }).length;
+  // Chart 1: Class A open by alarm category (dynamic)
+  var caAlarmCounts=dynamicCats.map(function(a){
+    return classAOpen.filter(function(r){ return (r['Alarm Category']||'').trim()===a; }).length;
   });
+  // Only show categories that have at least one Class A ticket
+  var caActiveCats=dynamicCats.filter(function(a,i){ return caAlarmCounts[i]>0; });
+  var caActiveCounts=caAlarmCounts.filter(function(c){ return c>0; });
+  var chartColors=[RED,CB,AMBER,CA,CC,'#14b8a6','#f472b6','#a78bfa','#34d399','#fb923c'];
   makeChart('c_classa_alarm',{type:'bar',data:{
-    labels:alarmCats,
-    datasets:[{label:'Open Tickets',data:caAlarmCounts,backgroundColor:[RED,CB,AMBER,CA,CC].map(function(c){return c+'cc';}),borderRadius:5,borderWidth:0}]
+    labels:caActiveCats.length>0?caActiveCats:['No open tickets'],
+    datasets:[{label:'Open Tickets',data:caActiveCounts.length>0?caActiveCounts:[0],backgroundColor:chartColors.slice(0,Math.max(caActiveCats.length,1)).map(function(c){return c+'cc';}),borderRadius:5,borderWidth:0}]
   },options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:scaleOpts()}});
 
-  // Chart 2: Class A open by site status
+  // Chart 2: Class A open by region + site status
+  var caByRegion={};
+  classAOpen.forEach(function(r){
+    var reg=(r['Region']||'Unknown').toUpperCase();
+    caByRegion[reg]=(caByRegion[reg]||0)+1;
+  });
+  var caRegionLabels=Object.keys(caByRegion);
+  var caRegionData=caRegionLabels.map(function(reg){ return caByRegion[reg]; });
   var caOnAir=classAOpen.filter(function(r){ return !(r['Current site status']||'').toLowerCase().includes('off'); }).length;
   var caOffAir=classAOpen.filter(function(r){ return (r['Current site status']||'').toLowerCase().includes('off'); }).length;
-  makeChart('c_classa_status',{type:'doughnut',data:{
-    labels:['On Air ('+n(caOnAir)+')','Off Air ('+n(caOffAir)+')'],
-    datasets:[{data:[caOnAir||0.01,caOffAir||0.01],backgroundColor:[GREEN+'cc',RED+'cc'],borderColor:['#0f1117'],borderWidth:2}]
-  },options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{labels:{color:tickC,font:{size:11},boxWidth:12}}}}});
 
-  // Table: full Class A open ticket detail
+  // Combine region + site status labels for donut
+  var donutLabels=caRegionLabels.map(function(reg){ return reg+' ('+caByRegion[reg]+')'; });
+  donutLabels.push('On Air ('+n(caOnAir)+')','Off Air ('+n(caOffAir)+')');
+  var donutData=caRegionData.concat([caOnAir||0.01, caOffAir||0.01]);
+  var donutColors=[CB+'cc',CA+'cc',CC+'cc',GREEN+'cc',RED+'cc'];
+
+  makeChart('c_classa_status',{type:'doughnut',data:{
+    labels:['On Air ('+n(caOnAir)+')','Off Air ('+n(caOffAir)+')'].concat(caRegionLabels.map(function(reg){ return reg+': '+caByRegion[reg]; })),
+    datasets:[
+      {label:'Site Status',data:[caOnAir||0.01,caOffAir||0.01],backgroundColor:[GREEN+'cc',RED+'cc'],borderColor:['#0f1117'],borderWidth:2},
+    ]
+  },options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{
+    legend:{labels:{color:tickC,font:{size:11},boxWidth:12}},
+    title:{display:caRegionLabels.length>0,text:caRegionLabels.map(function(r){return r+': '+caByRegion[r];}).join('  |  '),color:tickC,font:{size:11}}
+  }}});
+
+  // Table: full Class A open ticket detail — all regions
   var caTbody=document.getElementById('classa-tbody');
   if(caTbody){
     if(classAOpen.length===0){
-      caTbody.innerHTML='<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:1.5rem;">No open Class A tickets.</td></tr>';
+      caTbody.innerHTML='<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:1.5rem;">No open Class A tickets across any region.</td></tr>';
     } else {
       caTbody.innerHTML=classAOpen.map(function(r){
         var isDown=(r['Current site status']||'').toLowerCase().includes('off');
@@ -1112,27 +1139,57 @@ function refreshData(){
 }
 
 function downloadExcel(){
-  
-  if(!allRows||allRows.length===0){showToast('No data to download','error');return;}
-  var headers=Object.keys(allRows[0]);
-  var csv=[headers.join(',')];
-  allRows.forEach(function(r){
-    var row=headers.map(function(h){
-      var v=String(r[h]||'').replace(/"/g,'""');
-      return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v+'"':v;
+  showToast('Fetching all records from both sheets...','success');
+  var ts='&nocache='+Date.now();
+  Promise.all([
+    fetch(SHEET_CSV_URL_AUH+ts).then(function(r){return r.text();}),
+    fetch(SHEET_CSV_URL_DXB+ts).then(function(r){return r.text();})
+  ])
+  .then(function(results){
+    var auhRows=csvToObjects(results[0]);
+    var dxbRows=csvToObjects(results[1]);
+    var combined=auhRows.concat(dxbRows);
+    if(combined.length===0){showToast('No data to download','error');return;}
+    var headers=Object.keys(combined[0]);
+    var csv=[headers.join(',')];
+    combined.forEach(function(r){
+      var row=headers.map(function(h){
+        var v=String(r[h]||'').replace(/"/g,'""');
+        return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v+'"':v;
+      });
+      csv.push(row.join(','));
     });
-    csv.push(row.join(','));
+    var blob=new Blob(['\uFEFF'+csv.join('\n')],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='Rain_TT_All_Records_'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);URL.revokeObjectURL(url);
+    showToast('Downloaded '+combined.length+' records from both sheets ✓','success');
+  })
+  .catch(function(err){
+    console.warn('Download failed, using loaded data:', err.message);
+    if(!allRows||allRows.length===0){showToast('No data to download','error');return;}
+    var headers=Object.keys(allRows[0]);
+    var csv=[headers.join(',')];
+    allRows.forEach(function(r){
+      var row=headers.map(function(h){
+        var v=String(r[h]||'').replace(/"/g,'""');
+        return v.includes(',')||v.includes('"')||v.includes('\n')?'"'+v+'"':v;
+      });
+      csv.push(row.join(','));
+    });
+    var blob=new Blob(['\uFEFF'+csv.join('\n')],{type:'text/csv;charset=utf-8;'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='Rain_TT_All_Records_'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);URL.revokeObjectURL(url);
+    showToast('Downloaded '+allRows.length+' records ✓','success');
   });
-  var blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8;'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;
-  a.download='Rain_TT_Tracker_'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Downloaded ✓','success');
+}
 }
 
 function loadData(){
