@@ -421,7 +421,25 @@ function simplifyBanners(){
   <p class="section-title" style="margin-top:2rem;">Alarm Category Breakdown by Emirate</p>
   <div id="emirate-breakdown" class="region-grid"></div>
 
-  <p class="section-title">8PM Emirate Summary</p>
+  
+  
+  <div class="chart-card" style="margin-bottom:14px;padding:1rem 1.25rem;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px;">Alarm Categories Included in Summary</div>
+        <div style="font-size:11px;color:var(--muted);">Use Ctrl + Click to select multiple categories.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" onclick="selectAllAlarmFilters()" class="tt-filter-btn active">Select All</button>
+        <button type="button" onclick="clearAllAlarmFilters()" class="tt-filter-btn">Clear All</button>
+        <button type="button" onclick="selectElectroMechanicalOnly()" class="tt-filter-btn">Electro / Mechanical Only</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;">
+      <select id="alarm-filter" multiple style="width:100%;min-height:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:8px 10px;"></select>
+    </div>
+  </div>
+
   <div id="emirate-8pm-summary" class="region-grid"></div>
 
   <!-- Class A Open Tickets Breakdown -->
@@ -1018,6 +1036,69 @@ function getEmirateValue(r){
   return (r['Emirate'] || r['Region'] || '').trim();
 }
 
+
+function getSelectedAlarmCategories(){
+  const el = document.getElementById('alarm-filter');
+  if(!el) return [];
+  return [...el.selectedOptions].map(o => o.value);
+}
+
+function populateAlarmFilter(rows){
+  const el = document.getElementById('alarm-filter');
+  if(!el) return;
+  const alarms = [...new Set(rows.map(r => (r['Alarm Category'] || '').trim()).filter(Boolean))].sort();
+  const previous = new Set(getSelectedAlarmCategories());
+  el.innerHTML = alarms.map(a => '<option value="' + e(a) + '">' + e(a) + '</option>').join('');
+
+  let matchedPrevious = 0;
+  [...el.options].forEach(opt => {
+    const lower = opt.value.toLowerCase();
+    const defaultElectro = lower.includes('electro') || lower.includes('mechanical');
+    if (previous.size > 0 && previous.has(opt.value)) {
+      opt.selected = true;
+      matchedPrevious++;
+    } else if (previous.size === 0 && defaultElectro) {
+      opt.selected = true;
+    }
+  });
+
+  if (previous.size > 0 && matchedPrevious === 0) {
+    [...el.options].forEach(opt => {
+      const lower = opt.value.toLowerCase();
+      if (lower.includes('electro') || lower.includes('mechanical')) opt.selected = true;
+    });
+  }
+
+  if (!el.dataset.bound) {
+    el.addEventListener('change', function(){ renderEmirate8PMSummary(allRows || rows || []); });
+    el.dataset.bound = '1';
+  }
+}
+
+function selectAllAlarmFilters(){
+  const el = document.getElementById('alarm-filter');
+  if(!el) return;
+  [...el.options].forEach(opt => opt.selected = true);
+  renderEmirate8PMSummary(allRows || []);
+}
+
+function clearAllAlarmFilters(){
+  const el = document.getElementById('alarm-filter');
+  if(!el) return;
+  [...el.options].forEach(opt => opt.selected = false);
+  renderEmirate8PMSummary(allRows || []);
+}
+
+function selectElectroMechanicalOnly(){
+  const el = document.getElementById('alarm-filter');
+  if(!el) return;
+  [...el.options].forEach(opt => {
+    const lower = opt.value.toLowerCase();
+    opt.selected = lower.includes('electro') || lower.includes('mechanical');
+  });
+  renderEmirate8PMSummary(allRows || []);
+}
+
 function renderEmirate8PMSummary(rows){
   const wrap = document.getElementById('emirate-8pm-summary');
   if(!wrap) return;
@@ -1033,8 +1114,11 @@ function renderEmirate8PMSummary(rows){
 
   const matrix = emirates.map(function(em){
     const emirateRows = rows.filter(function(r){ return getEmirateValue(r).toUpperCase() === em.toUpperCase(); });
+    const selectedAlarms = getSelectedAlarmCategories();
     const incidentOpen = emirateRows.filter(function(r){
       if(!isOpenTicket(r)) return false;
+      const alarm = (r['Alarm Category'] || '').trim();
+      if(selectedAlarms.length && !selectedAlarms.includes(alarm)) return false;
       const d = parseTTDate(r['TT Date']);
       return !d || d <= today8pm;
     });
@@ -1174,6 +1258,7 @@ function buildDashboard(rows){
   buildRegionTable('tbody-dxb-out','thead-dxb-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='DXB_NE'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
   buildRegionTable('tbody-auh-out','thead-auh-out',rows.filter(r=>(r['Region']||'').toUpperCase()==='AUH'&&(r['Site Down Yes/ No']||'').toUpperCase().includes('YES')));
   renderEmirateBreakdown(rows);
+  populateAlarmFilter(rows);
   renderEmirate8PMSummary(rows);
 
   
