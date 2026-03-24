@@ -1122,7 +1122,12 @@ function renderEmirate8PMSummary(rows){
       const d = parseTTDate(r['TT Date']);
       return !d || d <= today8pm;
     });
-    const sitesDown = incidentOpen.filter(isOffAirTicket);
+    const sitesDownBase = emirateRows.filter(function(r){
+      if(!isOpenTicket(r)) return false;
+      const d = parseTTDate(r['TT Date']);
+      return !d || d <= today8pm;
+    });
+    const sitesDown = sitesDownBase.filter(isOffAirTicket);
     return {
       emirate: em,
       incidentsOpen: uniqueSiteCount(incidentOpen),
