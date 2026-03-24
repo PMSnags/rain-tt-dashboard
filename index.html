@@ -1041,7 +1041,7 @@ function renderEmirate8PMSummary(rows){
     const sitesDown = incidentOpen.filter(isOffAirTicket);
     return {
       emirate: em,
-      incidentsOpen: incidentOpen.length,
+      incidentsOpen: uniqueSiteCount(incidentOpen),
       sitesDown: uniqueSiteCount(sitesDown)
     };
   });
@@ -1059,7 +1059,7 @@ function renderEmirate8PMSummary(rows){
 
   wrap.innerHTML =
     '<div class="region-card" style="grid-column:1/-1;">' +
-      '<div class="region-card-title">Emirate Summary as of 8:00 PM</div>' +
+      '<div class="region-card-title">Incidents Summary per Emirate (as of 8:00 PM)</div>' +
       '<table class="summary-table">' +
         '<thead><tr><th style="text-align:left">Emirate</th><th>Incidents Open as of 8PM</th><th>No. of Sites Down</th></tr></thead>' +
         '<tbody>' +
